@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+test-results/
+playwright-report/
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+.coverage
+backend/coverage.json
+tsconfig.tsbuildinfo
+legacy/habitat/build/
+firmware/build/

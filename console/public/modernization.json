@@ -1,0 +1,89 @@
+{
+  "clone": "RTNET.EMS",
+  "platform": "HDB / Fortran 2008 batch tasks",
+  "tasks": [
+    {
+      "id": "RTGENACE",
+      "source": "legacy/habitat/src/ace_calc.f90",
+      "function": "Reporting ACE and regulation allocation",
+      "standard": "NERC BAL-001",
+      "cycle": "4 s",
+      "target_module": "app/agc.py",
+      "port_status": "ported, unverified",
+      "source_lines": 110,
+      "executable_lines": 74,
+      "program_units": [
+        "RTGENACE",
+        "RPTACE",
+        "ALLOCR"
+      ],
+      "target_coverage_pct": 0.0,
+      "characterization_tests": 0,
+      "parity_checked": true
+    },
+    {
+      "id": "LOADSHED",
+      "source": "legacy/habitat/src/loadshed.f90",
+      "function": "Underfrequency load shedding arming",
+      "standard": "PRC-006 (UFLS)",
+      "cycle": "2 s",
+      "target_module": null,
+      "port_status": "not started",
+      "source_lines": 72,
+      "executable_lines": 50,
+      "program_units": [
+        "LOADSHED"
+      ],
+      "target_coverage_pct": null,
+      "characterization_tests": 0,
+      "parity_checked": false
+    },
+    {
+      "id": "HAB_SAVECASE",
+      "source": "legacy/habitat/src/hab_savecase.f90",
+      "function": "HDB savecase export reader",
+      "standard": "HDB record conventions",
+      "cycle": "library",
+      "target_module": "app/savecase.py",
+      "port_status": "ported, unverified",
+      "source_lines": 163,
+      "executable_lines": 130,
+      "program_units": [
+        "HAB_SAVECASE",
+        "HDB_READ_EXPORT"
+      ],
+      "target_coverage_pct": 0.0,
+      "characterization_tests": 0,
+      "parity_checked": false
+    }
+  ],
+  "parity": {
+    "savecase": "rtnet_ems_0742.export",
+    "legacy_ace_mw": -116.3462,
+    "modern_ace_mw": -116.34,
+    "max_abs_delta_mw": 0.0062,
+    "matches": true,
+    "setpoints": [
+      {
+        "unit": "GEN.HARBOR1",
+        "legacy_mw": 0.4,
+        "modern_mw": 0.4
+      },
+      {
+        "unit": "GEN.HARBOR2",
+        "legacy_mw": 0.4,
+        "modern_mw": 0.4
+      },
+      {
+        "unit": "GEN.MESQUITE_CT",
+        "legacy_mw": 1.2,
+        "modern_mw": 1.2
+      },
+      {
+        "unit": "GEN.CEDAR_STM",
+        "legacy_mw": 0.0,
+        "modern_mw": 0.0
+      }
+    ]
+  }
+}

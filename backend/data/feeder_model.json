@@ -1,0 +1,152 @@
+{
+  "feeders": [
+    {
+      "mrid": "FDR-1201",
+      "name": "Cedar Ridge 1201",
+      "substation": "Cedar Ridge 69/12.47 kV",
+      "nominal_kv": 12.47,
+      "source_node": "SRC-1201",
+      "rating_amps": 600.0,
+      "sections": [
+        {
+          "mrid": "SEC-1201-01",
+          "name": "Cedar Ridge getaway",
+          "from_node": "BUS-1201",
+          "to_node": "N-1201-1",
+          "customers": 412,
+          "load_kw": 1850.0,
+          "fault_indicator": true
+        },
+        {
+          "mrid": "SEC-1201-02",
+          "name": "Mill Road lateral",
+          "from_node": "N-1201-1A",
+          "to_node": "N-1201-2",
+          "customers": 268,
+          "load_kw": 1120.0,
+          "fault_indicator": true
+        },
+        {
+          "mrid": "SEC-1201-03",
+          "name": "Quarry Crossing",
+          "from_node": "N-1201-2A",
+          "to_node": "N-1201-3",
+          "customers": 96,
+          "load_kw": 430.0,
+          "fault_indicator": false
+        },
+        {
+          "mrid": "SEC-1201-04",
+          "name": "Hollow Creek tail",
+          "from_node": "N-1201-3A",
+          "to_node": "N-1201-4",
+          "customers": 341,
+          "load_kw": 1490.0,
+          "fault_indicator": false
+        }
+      ],
+      "switches": [
+        {
+          "mrid": "CB-1201",
+          "name": "Cedar Ridge 1201 breaker",
+          "kind": "breaker",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "SRC-1201",
+          "to_node": "BUS-1201"
+        },
+        {
+          "mrid": "REC-1201-1",
+          "name": "Mill Road recloser",
+          "kind": "recloser",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "N-1201-1",
+          "to_node": "N-1201-1A"
+        },
+        {
+          "mrid": "SEC-SW-1201-1",
+          "name": "Quarry Crossing sectionalizer",
+          "kind": "sectionalizer",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "N-1201-2",
+          "to_node": "N-1201-2A"
+        },
+        {
+          "mrid": "REC-1201-2",
+          "name": "Hollow Creek recloser",
+          "kind": "recloser",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "N-1201-3",
+          "to_node": "N-1201-3A"
+        },
+        {
+          "mrid": "TIE-1201-1405",
+          "name": "Hollow Creek tie to 1405",
+          "kind": "tie",
+          "normal_open": true,
+          "open": true,
+          "scada_controllable": true,
+          "from_node": "N-1201-4",
+          "to_node": "ALT-1405"
+        }
+      ]
+    },
+    {
+      "mrid": "FDR-1405",
+      "name": "Birch Hollow 1405",
+      "substation": "Birch Hollow 69/12.47 kV",
+      "nominal_kv": 12.47,
+      "source_node": "SRC-1405",
+      "rating_amps": 600.0,
+      "sections": [
+        {
+          "mrid": "SEC-1405-01",
+          "name": "Birch Hollow getaway",
+          "from_node": "BUS-1405",
+          "to_node": "N-1405-1",
+          "customers": 522,
+          "load_kw": 2240.0,
+          "fault_indicator": false
+        },
+        {
+          "mrid": "SEC-1405-02",
+          "name": "Sawmill lateral",
+          "from_node": "N-1405-1A",
+          "to_node": "ALT-1405",
+          "customers": 187,
+          "load_kw": 810.0,
+          "fault_indicator": false
+        }
+      ],
+      "switches": [
+        {
+          "mrid": "CB-1405",
+          "name": "Birch Hollow 1405 breaker",
+          "kind": "breaker",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "SRC-1405",
+          "to_node": "BUS-1405"
+        },
+        {
+          "mrid": "REC-1405-1",
+          "name": "Sawmill recloser",
+          "kind": "recloser",
+          "normal_open": false,
+          "open": false,
+          "scada_controllable": true,
+          "from_node": "N-1405-1",
+          "to_node": "N-1405-1A"
+        }
+      ]
+    }
+  ]
+}

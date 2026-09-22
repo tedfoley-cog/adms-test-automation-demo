@@ -1,0 +1,58 @@
+!  scadamom.dbef
+!
+!  Database definition for the real-time balancing subset of the SCADAMOM
+!  database used by the RTNET application family. Loaded into the HDB
+!  dictionary with hdbcloner load_schema; Fortran 90 INCLUDE files and C
+!  headers for the records below are produced by hdbformat.
+!
+!  Record and field naming follows the HDB <FIELD>_<RECORD> convention, e.g.
+!  the description of an ALGNAM record is TEXT_ALGNAM.
+!
+!  NOTE (demo repository): the DBDEF grammar is not published outside the
+!  e-terrahabitat product documentation. The structure below mirrors the
+!  record/field naming and typing conventions that are publicly documented,
+!  but it is a representative reconstruction, not a verbatim vendor file.
+
+DATABASE SCADAMOM
+   APPLICATION  RTNET
+   FAMILY       EMS
+   GROUP        60
+
+   RECORD FREQ                       ! area frequency and bias
+      FIELD ID_FREQ        CHAR*20   KEY
+      FIELD VALUE_FREQ     REAL*4    UNITS HZ
+      FIELD SCHED_FREQ     REAL*4    UNITS HZ
+      FIELD BIAS_FREQ      REAL*4    UNITS MW_PER_0.1HZ
+      FIELD QUAL_FREQ      CHAR*1    ! N normal, S suspect, M manual
+   END RECORD
+
+   RECORD TIELINE                    ! metered interchange per tie
+      FIELD ID_TIELINE     CHAR*20   KEY
+      FIELD ACTUAL_TIELINE REAL*4    UNITS MW
+      FIELD SCHED_TIELINE  REAL*4    UNITS MW
+      FIELD QUAL_TIELINE   CHAR*1
+   END RECORD
+
+   RECORD METERR                     ! interchange metering error
+      FIELD ID_METERR      CHAR*20   KEY
+      FIELD VALUE_METERR   REAL*4    UNITS MW
+   END RECORD
+
+   RECORD UNIT                       ! regulating unit
+      FIELD ID_UNIT        CHAR*20   KEY
+      FIELD MW_UNIT        REAL*4    UNITS MW
+      FIELD MIN_UNIT       REAL*4    UNITS MW
+      FIELD MAX_UNIT       REAL*4    UNITS MW
+      FIELD RAMP_UNIT      REAL*4    UNITS MW_PER_MIN
+      FIELD PARTF_UNIT     REAL*4    ! participation factor
+      FIELD AGC_UNIT       LOGICAL*1
+   END RECORD
+
+   RECORD FEEDER                     ! distribution feeder load block
+      FIELD ID_FEEDER      CHAR*20   KEY
+      FIELD LOAD_FEEDER    REAL*4    UNITS MW
+      FIELD BLOCK_FEEDER   INT*2     ! underfrequency shed block 1..3
+      FIELD PRIO_FEEDER    INT*2     ! 1 = critical load, 3 = sheddable
+   END RECORD
+
+END DATABASE
