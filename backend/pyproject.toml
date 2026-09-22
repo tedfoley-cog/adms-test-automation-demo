@@ -23,6 +23,9 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "characterization: pins legacy Fortran behaviour before the ported service is trusted",
+]
 
 [tool.coverage.run]
 source = ["app"]

@@ -10,8 +10,8 @@ test.describe('Legacy modernization view', () => {
   test('the Fortran task inventory reports port status and the coverage of each target module', async ({
     page,
   }) => {
-    await expect(page.getByTestId('legacy-status-RTGENACE')).toHaveText('ported, unverified');
-    await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('0.0%');
+    await expect(page.getByTestId('legacy-status-RTGENACE')).toHaveText('ported, characterized');
+    await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('100.0%');
     await expect(page.getByTestId('legacy-RTGENACE')).toContainText('app/agc.py');
     await expect(page.getByTestId('legacy-RTGENACE')).toContainText('NERC BAL-001');
 
@@ -25,9 +25,9 @@ test.describe('Legacy modernization view', () => {
   }) => {
     await expect(page.getByTestId('parity-ace')).toContainText('-116.34');
     await expect(page.getByTestId('parity-GEN.HARBOR1')).toContainText('0.4000');
-    await expect(page.getByTestId('parity-summary')).toContainText('Max absolute delta');
+    await expect(page.getByTestId('parity-summary')).toContainText('Max absolute delta 0.0062 MW');
     await expect(page.getByTestId('parity-summary')).toContainText(
-      'No characterization tests exist yet',
+      '28 characterization tests pin the legacy behaviour',
     );
   });
 
@@ -47,5 +47,7 @@ test.describe('Legacy modernization view', () => {
 
     await page.getByTestId('legacy-RTGENACE').click();
     await expect(page.getByTestId('legacy-drawer-units')).toHaveText('RTGENACE, RPTACE, ALLOCR');
+    await expect(page.getByTestId('legacy-drawer-tests')).toHaveText('13');
+    await expect(page.getByTestId('legacy-drawer-readiness')).toHaveText('Ready for rewrite');
   });
 });

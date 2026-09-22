@@ -9,7 +9,8 @@
       "standard": "NERC BAL-001",
       "cycle": "4 s",
       "target_module": "app/agc.py",
-      "port_status": "ported, unverified",
+      "characterization_suite": "backend/tests/test_rtgenace_characterization.py",
+      "port_status": "ported, characterized",
       "source_lines": 110,
       "executable_lines": 74,
       "program_units": [
@@ -17,8 +18,8 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 13,
       "parity_checked": true
     },
     {
@@ -28,6 +29,7 @@
       "standard": "PRC-006 (UFLS)",
       "cycle": "2 s",
       "target_module": null,
+      "characterization_suite": null,
       "port_status": "not started",
       "source_lines": 72,
       "executable_lines": 50,
@@ -45,15 +47,16 @@
       "standard": "HDB record conventions",
       "cycle": "library",
       "target_module": "app/savecase.py",
-      "port_status": "ported, unverified",
+      "characterization_suite": "backend/tests/test_savecase_characterization.py",
+      "port_status": "ported, characterized",
       "source_lines": 163,
       "executable_lines": 130,
       "program_units": [
         "HAB_SAVECASE",
         "HDB_READ_EXPORT"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 15,
       "parity_checked": false
     }
   ],
