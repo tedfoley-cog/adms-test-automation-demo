@@ -101,8 +101,8 @@ def firmware_modules() -> list[dict[str, object]]:
     # one gcov report per test. Merge the per-line hit counts first, otherwise a
     # module shows up once per test binary and the overall percentage is wrong.
     hits: dict[str, dict[int, int]] = {}
-    pattern = str(FIRMWARE / "build" / "**" / "*.gcov.json.gz")
-    for archive in sorted(glob.glob(pattern, recursive=True)):
+    pattern = str(FIRMWARE / "build" / "*.p" / "*.gcov.json.gz")
+    for archive in sorted(glob.glob(pattern)):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):

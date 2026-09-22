@@ -36,6 +36,7 @@ $(BUILD)/%: tests/%.c $(SRCS) | $(BUILD)
 # A renamed or deleted test leaves its object/profile directory behind, and
 # gcov would keep crediting those stale .gcda files to the coverage report.
 prune:
+	@rm -f $(BUILD)/*.gcda $(BUILD)/*.gcno $(BUILD)/*.gcov.json.gz
 	@for d in $(BUILD)/*.p; do \
 		[ -e "$$d" ] || continue; \
 		case " $(TEST_PROFILE_DIRS) " in \

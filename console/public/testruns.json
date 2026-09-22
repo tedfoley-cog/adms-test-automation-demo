@@ -33,7 +33,7 @@
   },
   {
     "label": "coverage lift + RTGENACE characterization",
-    "generated_at": "2026-09-22T18:52:08+00:00",
+    "generated_at": "2026-09-22T19:17:50+00:00",
     "overall_pct": 75.0,
     "modules_below_target": 4,
     "lines_total": 617,
