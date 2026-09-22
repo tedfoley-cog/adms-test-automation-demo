@@ -8,6 +8,17 @@ import type { BacklogItem, CoverageReport, ModernizationReport, TestRun } from '
 
 type Tab = 'coverage' | 'modernization' | 'runs' | 'backlog';
 
+const BACKLOG_KEY = 'verification-backlog';
+
+function storedBacklog(): BacklogItem[] {
+  try {
+    const raw = window.localStorage.getItem(BACKLOG_KEY);
+    return raw ? (JSON.parse(raw) as BacklogItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: 'coverage', label: 'Coverage' },
   { id: 'modernization', label: 'Legacy modernization' },
@@ -19,7 +30,7 @@ export default function App() {
   const [report, setReport] = useState<CoverageReport | null>(null);
   const [runs, setRuns] = useState<TestRun[]>([]);
   const [modernization, setModernization] = useState<ModernizationReport | null>(null);
-  const [backlog, setBacklog] = useState<BacklogItem[]>([]);
+  const [backlog, setBacklog] = useState<BacklogItem[]>(storedBacklog);
   const [tab, setTab] = useState<Tab>('coverage');
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +51,10 @@ export default function App() {
         ),
       );
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(BACKLOG_KEY, JSON.stringify(backlog));
+  }, [backlog]);
 
   const belowTarget = useMemo(
     () => (report ? report.modules.filter((m) => m.status === 'below target') : []),

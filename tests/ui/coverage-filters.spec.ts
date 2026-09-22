@@ -42,7 +42,7 @@ test.describe('Coverage view: search, filter and sort over the real report', () 
   }) => {
     await page.getByTestId('filter-below').check();
     await page.getByTestId('sort-gap').click();
-    await page.getByTestId('sort-gap').click();
+    await expect(page.getByTestId('sort-gap')).toHaveText('Gap ▼');
 
     const first = page.locator('tbody tr.row').first();
     await expect(first).toContainText('90.0');

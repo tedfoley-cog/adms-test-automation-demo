@@ -30,6 +30,12 @@ body {
   padding: 2rem 1.5rem 3rem;
 }
 
+/* An open drawer is fixed to the right edge; keep the KPIs it affects in view. */
+.shell:has(.drawer) {
+  margin-right: 0;
+  padding-right: calc(min(440px, 92vw) + 1.5rem);
+}
+
 .masthead {
   display: flex;
   justify-content: space-between;

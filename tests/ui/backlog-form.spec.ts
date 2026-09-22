@@ -57,4 +57,19 @@ test.describe('Verification backlog form', () => {
     await expect(page.getByTestId('backlog-empty')).toBeVisible();
     await expect(page.getByTestId('kpi-backlog')).toHaveText('0');
   });
+
+  test('a queued request survives a reload', async ({ page }) => {
+    await page.getByTestId('form-module').selectOption('app/agc.py');
+    await page.getByTestId('form-target').fill('90');
+    await page
+      .getByTestId('form-justification')
+      .fill('Reporting ACE and regulation allocation are unpinned before the RTGENACE port.');
+    await page.getByTestId('form-submit').click();
+    await expect(page.getByTestId('kpi-backlog')).toHaveText('1');
+
+    await page.reload();
+    await expect(page.getByTestId('kpi-backlog')).toHaveText('1');
+    await page.getByTestId('tab-backlog').click();
+    await expect(page.getByTestId('backlog-agc.py')).toContainText('90% target');
+  });
 });

@@ -5,6 +5,14 @@ import type { BacklogItem, CoverageReport, ModuleCoverage } from '../types';
 
 type SortKey = 'coverage_pct' | 'gap_pct' | 'name' | 'lines_total';
 
+// Worst-first is the useful default: lowest coverage, largest gap, largest module.
+const DEFAULT_ASCENDING: Record<SortKey, boolean> = {
+  coverage_pct: true,
+  gap_pct: false,
+  name: true,
+  lines_total: false,
+};
+
 interface Props {
   report: CoverageReport;
   backlog: BacklogItem[];
@@ -47,9 +55,11 @@ export default function CoverageView({ report, backlog, onQueue }: Props) {
       setAscending((value) => !value);
     } else {
       setSortKey(key);
-      setAscending(true);
+      setAscending(DEFAULT_ASCENDING[key]);
     }
   };
+
+  const marker = (key: SortKey) => (key === sortKey ? (ascending ? ' \u25b2' : ' \u25bc') : '');
 
   return (
     <section className="panel">
@@ -106,7 +116,7 @@ export default function CoverageView({ report, backlog, onQueue }: Props) {
           <tr>
             <th>
               <button type="button" data-testid="sort-name" onClick={() => toggleSort('name')}>
-                Module
+                Module{marker('name')}
               </button>
             </th>
             <th>Function</th>
@@ -117,13 +127,13 @@ export default function CoverageView({ report, backlog, onQueue }: Props) {
                 data-testid="sort-coverage"
                 onClick={() => toggleSort('coverage_pct')}
               >
-                Coverage
+                Coverage{marker('coverage_pct')}
               </button>
             </th>
             <th>Target</th>
             <th>
               <button type="button" data-testid="sort-gap" onClick={() => toggleSort('gap_pct')}>
-                Gap
+                Gap{marker('gap_pct')}
               </button>
             </th>
             <th>Status</th>

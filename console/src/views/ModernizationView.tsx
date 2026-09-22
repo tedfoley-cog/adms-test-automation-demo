@@ -6,9 +6,22 @@ interface Props {
   modernization: ModernizationReport;
 }
 
+function readiness(task: LegacyTask): string {
+  if (task.characterization_tests === 0) {
+    return 'Blocked: no behaviour is pinned before the rewrite';
+  }
+  return task.target_module
+    ? 'Port pinned by characterization tests'
+    : 'Ready for rewrite: behaviour pinned, no port yet';
+}
+
 export default function ModernizationView({ modernization }: Props) {
   const [selected, setSelected] = useState<LegacyTask | null>(null);
   const { parity } = modernization;
+  const characterizationTests = modernization.tasks.reduce(
+    (total, task) => total + task.characterization_tests,
+    0,
+  );
 
   return (
     <section className="panel">
@@ -105,8 +118,10 @@ export default function ModernizationView({ modernization }: Props) {
         </tbody>
       </table>
       <p className="subtle" data-testid="parity-summary">
-        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay. No
-        characterization tests exist yet, so parity is a single spot check rather than evidence.
+        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay.{' '}
+        {characterizationTests === 0
+          ? 'No characterization tests exist yet, so parity is a single spot check rather than evidence.'
+          : `${characterizationTests} characterization tests pin the legacy behaviour behind this replay.`}
       </p>
 
       {selected && (
@@ -138,9 +153,7 @@ export default function ModernizationView({ modernization }: Props) {
             <div>
               <dt>Migration readiness</dt>
               <dd data-testid="legacy-drawer-readiness">
-                {selected.characterization_tests === 0
-                  ? 'Blocked: no behaviour is pinned before the rewrite'
-                  : 'Ready for rewrite'}
+                {readiness(selected)}
               </dd>
             </div>
           </dl>
