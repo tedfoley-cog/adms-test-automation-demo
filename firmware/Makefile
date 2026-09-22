@@ -6,8 +6,9 @@ BUILD = build
 SRCS = src/fault_detect.c src/recloser.c src/dnp3_outstation.c
 TEST_SRCS = $(wildcard tests/test_*.c)
 TEST_BINS = $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRCS))
+TEST_OBJDIRS = $(patsubst tests/%.c,$(BUILD)/%.obj,$(TEST_SRCS))
 
-.PHONY: all test coverage clean
+.PHONY: all test coverage prune clean
 
 all: $(BUILD)/relay_app.o
 
@@ -31,7 +32,15 @@ $(BUILD)/%: tests/%.c $(SRCS) | $(BUILD)
 	done
 	$(CC) $(COVFLAGS) $(BUILD)/$*.obj/*.o -o $@ -lm
 
-test: $(TEST_BINS)
+# A deleted test leaves its object directory (and its .gcda) behind, which
+# would keep crediting the coverage report with lines nothing exercises.
+prune:
+	@set -e; for d in $(BUILD)/*.obj; do \
+		[ -d "$$d" ] || continue; \
+		case " $(TEST_OBJDIRS) " in *" $$d "*) ;; *) rm -rf "$$d";; esac; \
+	done
+
+test: prune $(TEST_BINS)
 	@set -e; for t in $(TEST_BINS); do echo "== $$t"; $$t; done
 
 coverage: test

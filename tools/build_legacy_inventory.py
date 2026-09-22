@@ -109,11 +109,18 @@ def modern_ace() -> dict[str, float]:
     return result
 
 
-def characterization_test_count(suite: str | None) -> int:
-    """Count the collected characterization tests pinning one legacy task."""
+PASSED_RE = re.compile(r"(\d+) passed")
+
+
+def characterization_result(suite: str | None) -> tuple[int, bool]:
+    """Run the characterization tests pinning one legacy task.
+
+    Returns the number of passing tests and whether the whole suite passed; a
+    suite that fails pins nothing, so it must not promote the port status.
+    """
     if suite is None or not (REPO / suite).exists():
-        return 0
-    collected = subprocess.run(
+        return 0, False
+    completed = subprocess.run(
         [
             sys.executable,
             "-m",
@@ -121,15 +128,17 @@ def characterization_test_count(suite: str | None) -> int:
             str(REPO / suite),
             "-m",
             "characterization",
-            "--collect-only",
             "-q",
         ],
         cwd=BACKEND,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
-    ).stdout
-    return sum(1 for line in collected.splitlines() if "::" in line)
+    )
+    if completed.returncode != 0:
+        return 0, False
+    match = PASSED_RE.search(completed.stdout)
+    return (int(match.group(1)) if match else 0), True
 
 
 def coverage_by_module() -> dict[str, float]:
@@ -167,12 +176,12 @@ def main() -> None:
     for task in TASKS:
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
-        characterization_tests = characterization_test_count(
+        characterization_tests, characterization_passed = characterization_result(
             task["characterization_suite"]
         )
         parity_checked = bool(target) and task["id"] == "RTGENACE"
         port_status = task["port_status"]
-        if characterization_tests and (parity["matches"] or not parity_checked):
+        if characterization_passed and (parity["matches"] or not parity_checked):
             port_status = "ported, characterized"
         tasks.append(
             {
