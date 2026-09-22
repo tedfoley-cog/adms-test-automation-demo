@@ -61,7 +61,9 @@ def load_savecase(path: Path) -> Savecase:
         if head == "SAVECASE":
             case.name = rest.strip()
             continue
-        if head in {"CLONE", "TIMESTAMP", "END"}:
+        if head == "END":
+            break
+        if head in {"CLONE", "TIMESTAMP"}:
             continue
 
         fields = line.split()

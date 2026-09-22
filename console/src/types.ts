@@ -43,7 +43,7 @@ export interface LegacyTask {
   standard: string;
   cycle: string;
   target_module: string | null;
-  port_status: 'ported, unverified' | 'not started';
+  port_status: 'ported, unverified' | 'ported, characterized' | 'not started';
   source_lines: number;
   executable_lines: number;
   program_units: string[];

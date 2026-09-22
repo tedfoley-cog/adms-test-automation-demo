@@ -9,6 +9,10 @@ interface Props {
 export default function ModernizationView({ modernization }: Props) {
   const [selected, setSelected] = useState<LegacyTask | null>(null);
   const { parity } = modernization;
+  const characterizationTests = modernization.tasks.reduce(
+    (total, task) => total + task.characterization_tests,
+    0,
+  );
 
   return (
     <section className="panel">
@@ -105,8 +109,10 @@ export default function ModernizationView({ modernization }: Props) {
         </tbody>
       </table>
       <p className="subtle" data-testid="parity-summary">
-        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay. No
-        characterization tests exist yet, so parity is a single spot check rather than evidence.
+        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay.{' '}
+        {characterizationTests === 0
+          ? 'No characterization tests exist yet, so parity is a single spot check rather than evidence.'
+          : `${characterizationTests} characterization tests pin the legacy behaviour behind this replay.`}
       </p>
 
       {selected && (

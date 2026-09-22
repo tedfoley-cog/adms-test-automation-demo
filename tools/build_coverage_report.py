@@ -96,20 +96,30 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 def firmware_modules() -> list[dict[str, object]]:
     run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
-    for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
+
+    # Every test binary profiles the whole of src/, so a source file appears in
+    # one gcov report per test. Merge the per-line hit counts first, otherwise a
+    # module shows up once per test binary and the overall percentage is wrong.
+    hits: dict[str, dict[int, int]] = {}
+    pattern = str(FIRMWARE / "build" / "*.p" / "*.gcov.json.gz")
+    for archive in sorted(glob.glob(pattern)):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):
             source = file_entry["file"]
             if not source.startswith("src/"):
                 continue
-            path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            counts = hits.setdefault(f"firmware/{source}", {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                counts[number] = counts.get(number, 0) + line.get("count", 0)
+
+    modules: list[dict[str, object]] = []
+    for path, counts in sorted(hits.items()):
+        total = len(counts)
+        covered = sum(1 for count in counts.values() if count > 0)
+        uncovered = sorted(number for number, count in counts.items() if count == 0)
+        modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
     return modules
 
 
@@ -197,16 +207,18 @@ def main() -> None:
 
     runs_path = PUBLIC / "testruns.json"
     runs = json.loads(runs_path.read_text(encoding="utf-8")) if runs_path.exists() else []
-    runs.append(
-        {
-            "label": args.label,
-            "generated_at": generated_at,
-            "overall_pct": overall,
-            "modules_below_target": sum(1 for m in modules if m["status"] == "below target"),
-            "lines_total": total_lines,
-            "lines_covered": covered_lines,
-        }
-    )
+    entry = {
+        "label": args.label,
+        "generated_at": generated_at,
+        "overall_pct": overall,
+        "modules_below_target": sum(1 for m in modules if m["status"] == "below target"),
+        "lines_total": total_lines,
+        "lines_covered": covered_lines,
+    }
+    # Re-running a label supersedes the earlier attempt rather than stacking a
+    # second history row with the same name.
+    runs = [run_entry for run_entry in runs if run_entry["label"] != args.label]
+    runs.append(entry)
     runs_path.write_text(json.dumps(runs, indent=2) + "\n", encoding="utf-8")
 
     print(f"overall line coverage: {overall}% across {len(modules)} modules")

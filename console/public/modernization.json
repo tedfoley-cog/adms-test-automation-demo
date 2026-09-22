@@ -1,6 +1,7 @@
 {
   "clone": "RTNET.EMS",
   "platform": "HDB / Fortran 2008 batch tasks",
+  "characterization_tests": 31,
   "tasks": [
     {
       "id": "RTGENACE",
@@ -9,7 +10,8 @@
       "standard": "NERC BAL-001",
       "cycle": "4 s",
       "target_module": "app/agc.py",
-      "port_status": "ported, unverified",
+      "port_status": "ported, characterized",
+      "characterization_suite": "tests/test_rtgenace_characterization.py",
       "source_lines": 110,
       "executable_lines": 74,
       "program_units": [
@@ -17,8 +19,8 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 14,
       "parity_checked": true
     },
     {
@@ -29,6 +31,7 @@
       "cycle": "2 s",
       "target_module": null,
       "port_status": "not started",
+      "characterization_suite": null,
       "source_lines": 72,
       "executable_lines": 50,
       "program_units": [
@@ -45,15 +48,16 @@
       "standard": "HDB record conventions",
       "cycle": "library",
       "target_module": "app/savecase.py",
-      "port_status": "ported, unverified",
+      "port_status": "ported, characterized",
+      "characterization_suite": "tests/test_savecase_characterization.py",
       "source_lines": 163,
       "executable_lines": 130,
       "program_units": [
         "HAB_SAVECASE",
         "HDB_READ_EXPORT"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 17,
       "parity_checked": false
     }
   ],

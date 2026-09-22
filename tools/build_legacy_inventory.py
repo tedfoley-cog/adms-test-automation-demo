@@ -33,6 +33,7 @@ TASKS = [
         "cycle": "4 s",
         "target_module": "app/agc.py",
         "port_status": "ported, unverified",
+        "characterization_suite": "tests/test_rtgenace_characterization.py",
     },
     {
         "id": "LOADSHED",
@@ -42,6 +43,7 @@ TASKS = [
         "cycle": "2 s",
         "target_module": None,
         "port_status": "not started",
+        "characterization_suite": None,
     },
     {
         "id": "HAB_SAVECASE",
@@ -51,6 +53,7 @@ TASKS = [
         "cycle": "library",
         "target_module": "app/savecase.py",
         "port_status": "ported, unverified",
+        "characterization_suite": "tests/test_savecase_characterization.py",
     },
 ]
 
@@ -68,6 +71,31 @@ def source_stats(path: Path) -> dict[str, object]:
         if match and not stripped.upper().startswith("END"):
             units.append(match.group(2).upper())
     return {"source_lines": len(lines), "executable_lines": executable, "program_units": units}
+
+
+PASSED_RE = re.compile(r"(\d+) passed")
+
+
+def characterization_count(suite: str | None) -> int:
+    """Number of characterization tests a task's suite actually passes.
+
+    The suite is executed, not just collected: a failing suite means the legacy
+    behaviour is not pinned, so it must not credit the task with any tests.
+    """
+    if suite is None or not (BACKEND / suite).exists():
+        return 0
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", suite, "-m", "characterization", "-q"],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        print(f"characterization suite failed, counting 0: {suite}", file=sys.stderr)
+        return 0
+    match = PASSED_RE.search(completed.stdout)
+    return int(match.group(1)) if match else 0
 
 
 def legacy_ace() -> dict[str, float]:
@@ -132,15 +160,19 @@ def main() -> None:
     }
 
     tasks = []
+    total_characterization = 0
     for task in TASKS:
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
+        tests = characterization_count(task["characterization_suite"])
+        total_characterization += tests
         tasks.append(
             {
                 **task,
                 **stats,
+                "port_status": "ported, characterized" if tests else task["port_status"],
                 "target_coverage_pct": coverage.get(target) if target else None,
-                "characterization_tests": 0,
+                "characterization_tests": tests,
                 "parity_checked": bool(target) and task["id"] == "RTGENACE",
             }
         )
@@ -148,6 +180,7 @@ def main() -> None:
     payload = {
         "clone": "RTNET.EMS",
         "platform": "HDB / Fortran 2008 batch tasks",
+        "characterization_tests": total_characterization,
         "tasks": tasks,
         "parity": parity,
     }
@@ -155,7 +188,7 @@ def main() -> None:
     (PUBLIC / "modernization.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(
         f"legacy tasks: {len(tasks)}, ACE parity delta: {parity['max_abs_delta_mw']} MW, "
-        f"characterization tests: 0"
+        f"characterization tests: {total_characterization}"
     )
 
 
