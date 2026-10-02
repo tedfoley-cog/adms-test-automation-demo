@@ -1,12 +1,12 @@
 ---
 name: verification-console-gauntlet
-description: Mandatory finale for any session in this repo — rebuild the console reports, run the Playwright gauntlet, then click-test the verification console interactively in the browser and report verdicts. Invoke after any coverage lift, test generation or legacy port, before opening a PR.
+description: Finale for coverage-lift, test-generation and legacy-port sessions in this repo — rebuild the console reports, run the Playwright gauntlet, then click-test the verification console interactively in the browser and report verdicts. Invoke after a coverage lift, bulk test generation or a legacy port, before opening a PR. Not required for a single defect fix handled by safety-critical-change.
 ---
 
 # Verification console gauntlet
 
-Run this at the end of every session in this repo. It is not optional and does not wait for
-the presenter to ask.
+Run this at the end of every coverage-lift, test-generation or legacy-port session. It is not
+optional there and does not wait for the presenter to ask.
 
 ## 1. Rebuild the evidence
 
