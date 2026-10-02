@@ -37,12 +37,14 @@ walk the full journey interactively, not as a smoke check:
 2. Open a module drawer, read the uncovered lines, queue test generation, confirm the KPI increments.
 3. Legacy modernization: confirm each Fortran task's port status, target-module coverage and characterization-test count; open a task drawer and read the readiness verdict.
 4. Parity table: confirm the ACE and per-unit setpoint deltas match the `build_legacy_inventory.py` output.
-5. Verification backlog: submit an invalid request and read the validation errors, then a valid one and confirm it appears.
+5. Verification backlog: submit an invalid request and read the validation errors, then a valid one and confirm it appears. Reload the page — the queue and its KPI must survive it. Remove the request through the UI and reload again.
 6. Test runs: confirm the new run appears with the coverage you just produced.
+7. Repeat the drawer checks at ~1100 CSS pixels as well as a normal desktop width, for both the module drawer and the legacy task drawer. Judge from screenshots, not from DOM presence: every column, badge and KPI must stay readable. A green headless suite says nothing about whether the drawer covers the table.
 
-Record the click-through and screenshot the console.
+Record the click-through, screenshot the console, and leave the demo queue empty.
 
 ## 4. Report
 
 State the coverage before and after, the parity delta, the characterization tests added, and
-the UI verdicts. Attach the recording and screenshots to the PR.
+the UI verdicts. Attach the recording and screenshots to the PR, and report layout failures even
+when the automated suite passes.

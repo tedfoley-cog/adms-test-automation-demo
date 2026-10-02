@@ -30,6 +30,12 @@ body {
   padding: 2rem 1.5rem 3rem;
 }
 
+/* An open drawer is fixed to the right edge; keep the KPIs it affects in view. */
+.shell:has(.drawer) {
+  max-width: none;
+  margin-right: min(440px, 92vw);
+}
+
 .masthead {
   display: flex;
   justify-content: space-between;
@@ -110,6 +116,9 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 1.25rem;
+  /* The tables have a wide intrinsic minimum; scroll them instead of letting
+     them spill under the drawer or off the page on a narrower projector. */
+  overflow-x: auto;
 }
 
 .two-column {

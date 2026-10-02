@@ -20,15 +20,23 @@ $(BUILD)/relay_app.o: $(SRCS) | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
+# Each test binary keeps its objects (and therefore its .gcda profiles) in its
+# own directory: the sources are linked into every binary, so a shared profile
+# directory makes the runs overwrite each other's counters.
 $(BUILD)/%: tests/%.c $(SRCS) | $(BUILD)
-	$(CC) $(CFLAGS) $(COVFLAGS) $< $(SRCS) -o $@ -lm
+	@mkdir -p $(BUILD)/$*.obj
+	$(CC) $(CFLAGS) $(COVFLAGS) -c $< -o $(BUILD)/$*.obj/$*.o
+	@set -e; for s in $(SRCS); do \
+		$(CC) $(CFLAGS) $(COVFLAGS) -c $$s -o $(BUILD)/$*.obj/`basename $$s .c`.o; \
+	done
+	$(CC) $(COVFLAGS) $(BUILD)/$*.obj/*.o -o $@ -lm
 
 test: $(TEST_BINS)
 	@set -e; for t in $(TEST_BINS); do echo "== $$t"; $$t; done
 
 coverage: test
-	@cd $(BUILD) && gcov -i -o . *.gcda > /dev/null 2>&1 || true
-	@echo "gcov json written to $(BUILD)"
+	@set -e; for d in $(BUILD)/*.obj; do (cd $$d && gcov -i -o . *.gcda > /dev/null 2>&1 || true); done
+	@echo "gcov json written to $(BUILD)/*.obj"
 
 clean:
 	rm -rf $(BUILD)
