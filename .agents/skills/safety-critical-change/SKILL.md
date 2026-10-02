@@ -33,6 +33,9 @@ operational terms (e.g. "plan closes CB-1201 onto the faulted section"). Run it 
 failure output for the PR. If you cannot make it fail, the defect is not confirmed: report
 that and stop — do not fix speculatively.
 
+Behaviour-preserving refactors and ports have no defect to reproduce: skip this step and let
+the step 2 tests be the gate.
+
 ## 4. Minimal fail-safe fix
 
 - Change only what the failing test needs. No drive-by refactors, renames or formatting.
@@ -42,11 +45,12 @@ that and stop — do not fix speculatively.
 
 ## 5. Prove it
 
-1. The step 3 test passes and every step 2 test passes unchanged.
+1. The step 3 test (if any) passes and every step 2 test passes unchanged.
 2. Add a safety-invariant test that states the rule the fix protects (e.g. "no restoration
-   step energises the faulted section") and check it over many generated inputs — a
-   seeded `random` generator over radial and branched topologies, at least 500 cases. No new
-   dependencies.
+   step energises the faulted section") and check it over at least 500 inputs from a seeded
+   `random` generator, drawn from the module's own input space: radial and branched
+   topologies for FLISR, unit fleets and ACE values for AGC, measurement sets for state
+   estimation, records for savecase ingest. No new dependencies.
 3. Re-run the step 1 commands plus `ruff check backend tools`. Coverage of the touched module
    must not drop.
 

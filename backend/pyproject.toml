@@ -23,6 +23,9 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "characterization: pins the behaviour of a legacy task before it is ported",
+]
 
 [tool.coverage.run]
 source = ["app"]
