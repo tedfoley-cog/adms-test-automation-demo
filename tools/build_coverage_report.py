@@ -91,25 +91,37 @@ TIER_TARGETS = {"Tier 1": 90, "Tier 2": 75, "Tier 3": 60}
 
 
 def run(cmd: list[str], cwd: Path) -> None:
-    subprocess.run(cmd, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    subprocess.run(
+        cmd, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
 
 
 def firmware_modules() -> list[dict[str, object]]:
     run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
-    for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
+    # Every test binary links every source, so each source shows up in several
+    # gcov reports; merge the hit counts per line before scoring the module.
+    hits: dict[str, dict[int, int]] = {}
+    for archive in sorted(
+        glob.glob(str(FIRMWARE / "build" / "*.obj" / "*.gcov.json.gz"))
+    ):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):
-            source = file_entry["file"]
-            if not source.startswith("src/"):
+            source = file_entry["file"].split("src/", 1)[-1]
+            if not file_entry["file"].endswith(f"src/{source}"):
                 continue
-            path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            counts = hits.setdefault(f"firmware/src/{source}", {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                counts[number] = counts.get(number, 0) + line.get("count", 0)
+
+    modules: list[dict[str, object]] = []
+    for path, counts in sorted(hits.items()):
+        covered = sum(1 for count in counts.values() if count > 0)
+        uncovered = sorted(number for number, count in counts.items() if count == 0)
+        modules.append(
+            build_module(path, "firmware", "C", len(counts), covered, uncovered)
+        )
     return modules
 
 
@@ -193,16 +205,22 @@ def main() -> None:
     }
 
     PUBLIC.mkdir(parents=True, exist_ok=True)
-    (PUBLIC / "coverage.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (PUBLIC / "coverage.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
 
     runs_path = PUBLIC / "testruns.json"
-    runs = json.loads(runs_path.read_text(encoding="utf-8")) if runs_path.exists() else []
+    runs = (
+        json.loads(runs_path.read_text(encoding="utf-8")) if runs_path.exists() else []
+    )
     runs.append(
         {
             "label": args.label,
             "generated_at": generated_at,
             "overall_pct": overall,
-            "modules_below_target": sum(1 for m in modules if m["status"] == "below target"),
+            "modules_below_target": sum(
+                1 for m in modules if m["status"] == "below target"
+            ),
             "lines_total": total_lines,
             "lines_covered": covered_lines,
         }

@@ -22,7 +22,9 @@ BACKEND = REPO / "backend"
 PUBLIC = REPO / "console" / "public"
 SAVECASE = LEGACY / "savecases" / "rtnet_ems_0742.export"
 
-UNIT_RE = re.compile(r"^\s*(PROGRAM|SUBROUTINE|FUNCTION|MODULE)\s+([A-Z_0-9]+)", re.IGNORECASE)
+UNIT_RE = re.compile(
+    r"^\s*(PROGRAM|SUBROUTINE|FUNCTION|MODULE)\s+([A-Z_0-9]+)", re.IGNORECASE
+)
 
 TASKS = [
     {
@@ -32,6 +34,7 @@ TASKS = [
         "standard": "NERC BAL-001",
         "cycle": "4 s",
         "target_module": "app/agc.py",
+        "characterization_suite": "backend/tests/test_rtgenace_characterization.py",
         "port_status": "ported, unverified",
     },
     {
@@ -41,6 +44,7 @@ TASKS = [
         "standard": "PRC-006 (UFLS)",
         "cycle": "2 s",
         "target_module": None,
+        "characterization_suite": None,
         "port_status": "not started",
     },
     {
@@ -50,6 +54,7 @@ TASKS = [
         "standard": "HDB record conventions",
         "cycle": "library",
         "target_module": "app/savecase.py",
+        "characterization_suite": "backend/tests/test_savecase_characterization.py",
         "port_status": "ported, unverified",
     },
 ]
@@ -67,7 +72,11 @@ def source_stats(path: Path) -> dict[str, object]:
         match = UNIT_RE.match(stripped)
         if match and not stripped.upper().startswith("END"):
             units.append(match.group(2).upper())
-    return {"source_lines": len(lines), "executable_lines": executable, "program_units": units}
+    return {
+        "source_lines": len(lines),
+        "executable_lines": executable,
+        "program_units": units,
+    }
 
 
 def legacy_ace() -> dict[str, float]:
@@ -98,6 +107,38 @@ def modern_ace() -> dict[str, float]:
     result = {"ACE_MW": ace}
     result.update(allocate_regulation(case.units, ace))
     return result
+
+
+PASSED_RE = re.compile(r"(\d+) passed")
+
+
+def characterization_result(suite: str | None) -> tuple[int, bool]:
+    """Run the characterization tests pinning one legacy task.
+
+    Returns the number of passing tests and whether the whole suite passed; a
+    suite that fails pins nothing, so it must not promote the port status.
+    """
+    if suite is None or not (REPO / suite).exists():
+        return 0, False
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(REPO / suite),
+            "-m",
+            "characterization",
+            "-q",
+        ],
+        cwd=BACKEND,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return 0, False
+    match = PASSED_RE.search(completed.stdout)
+    return (int(match.group(1)) if match else 0), True
 
 
 def coverage_by_module() -> dict[str, float]:
@@ -135,13 +176,21 @@ def main() -> None:
     for task in TASKS:
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
+        characterization_tests, characterization_passed = characterization_result(
+            task["characterization_suite"]
+        )
+        parity_checked = bool(target) and task["id"] == "RTGENACE"
+        port_status = task["port_status"]
+        if characterization_passed and (parity["matches"] or not parity_checked):
+            port_status = "ported, characterized"
         tasks.append(
             {
                 **task,
                 **stats,
+                "port_status": port_status,
                 "target_coverage_pct": coverage.get(target) if target else None,
-                "characterization_tests": 0,
-                "parity_checked": bool(target) and task["id"] == "RTGENACE",
+                "characterization_tests": characterization_tests,
+                "parity_checked": parity_checked,
             }
         )
 
@@ -152,10 +201,12 @@ def main() -> None:
         "parity": parity,
     }
     PUBLIC.mkdir(parents=True, exist_ok=True)
-    (PUBLIC / "modernization.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (PUBLIC / "modernization.json").write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
     print(
         f"legacy tasks: {len(tasks)}, ACE parity delta: {parity['max_abs_delta_mw']} MW, "
-        f"characterization tests: 0"
+        f"characterization tests: {sum(task['characterization_tests'] for task in tasks)}"
     )
 
 
