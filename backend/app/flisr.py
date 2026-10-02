@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .models import Feeder, IsolationStep, RestorationPlan
 from .network import (
+    adjacency,
     energised_nodes,
     load_on_nodes,
     sections_downstream_of,
@@ -22,17 +23,57 @@ class FlisrError(RuntimeError):
 
 
 def locate_fault(feeder: Feeder) -> str | None:
-    """Faulted section = the first section beyond the last fault indication."""
-    indicated = [section for section in feeder.sections if section.fault_indicator]
+    """Trace indications on the normal radial topology, before protection lockout."""
+    indicated = {section.mrid for section in feeder.sections if section.fault_indicator}
     if not indicated:
         return None
 
-    order = {section.mrid: index for index, section in enumerate(feeder.sections)}
-    last_indicated = max(indicated, key=lambda section: order[section.mrid])
-    index = order[last_indicated.mrid]
-    if index + 1 < len(feeder.sections):
-        return feeder.sections[index + 1].mrid
-    return last_indicated.mrid
+    topology = feeder.model_copy(deep=True)
+    for switch in topology.switches:
+        switch.open = switch.normal_open
+    graph = adjacency(topology)
+    section_ids = {section.mrid for section in feeder.sections}
+    paths: dict[str, tuple[str, tuple[str, ...]]] = {}
+    children: dict[str, list[tuple[str, str]]] = {}
+    seen = {feeder.source_node}
+    stack: list[tuple[str, str | None, tuple[str, ...]]] = [(feeder.source_node, None, ())]
+    while stack:
+        node, parent_element, path = stack.pop()
+        children[node] = []
+        for neighbour, element in graph.get(node, []):
+            if element == parent_element:
+                continue
+            if neighbour in seen:
+                raise FlisrError("fault location requires a radial topology")
+            seen.add(neighbour)
+            children[node].append((neighbour, element))
+            next_path = path
+            if element in section_ids:
+                next_path = (*path, element)
+                paths[element] = (neighbour, next_path)
+            stack.append((neighbour, element, next_path))
+
+    if not indicated <= paths.keys():
+        raise FlisrError("fault indications are not reachable from the source")
+    indicated_paths = [paths[element][1] for element in indicated]
+    if any(set(path) - indicated for path in indicated_paths):
+        raise FlisrError("fault indications are not contiguous from the source")
+    last_path = max(indicated_paths, key=len)
+    if set(last_path) != indicated:
+        raise FlisrError("fault indications span multiple branches")
+
+    last_indicated = last_path[-1]
+    candidates: list[str] = []
+    pending = [paths[last_indicated][0]]
+    while pending:
+        for neighbour, element in children[pending.pop()]:
+            if element in section_ids:
+                candidates.append(element)
+            else:
+                pending.append(neighbour)
+    if len(candidates) > 1:
+        raise FlisrError("faulted downstream branch cannot be determined")
+    return candidates[0] if candidates else last_indicated
 
 
 def _isolation_switches(feeder: Feeder, faulted_section_mrid: str) -> list[IsolationStep]:
