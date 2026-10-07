@@ -29,13 +29,21 @@ def locate_fault(feeder: Feeder) -> str | None:
 
     Distance is measured along the feeder's normal topology from the source, so the
     order of `feeder.sections` is irrelevant. Refuses with FlisrError rather than
-    guess when the indications do not single out one section: non-radial topology,
-    an indication not fed from the source, indications on more than one branch, or
-    more than one unindicated section fed from the farthest indication.
+    guess when the indications do not single out one section: a normally-open switch
+    closed (possible back-feed), non-radial topology, an indication not fed from the
+    source, indications on more than one branch, or more than one unindicated section
+    fed from the farthest indication.
     """
     indicated = {section.mrid for section in feeder.sections if section.fault_indicator}
     if not indicated:
         return None
+
+    back_feeds = [s.mrid for s in feeder.switches if s.normal_open and not s.open]
+    if back_feeds:
+        raise FlisrError(
+            f"normally-open {', '.join(back_feeds)} closed: indications may be from an "
+            "alternate source; manual patrol required"
+        )
 
     upstream = _upstream_sections(feeder)
     unfed = indicated - upstream.keys()

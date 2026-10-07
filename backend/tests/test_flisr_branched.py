@@ -204,6 +204,19 @@ def test_normally_open_tie_is_not_treated_as_a_downstream_branch():
     assert locate_fault(feeder) == "SEC-M4"
 
 
+def test_refuses_while_a_tie_is_back_feeding_the_feeder():
+    # Fed from ALT-0 through the closed tie: indications on M4/M3 point back towards M2,
+    # not away from SRC, so reading them against the normal source would pick SEC-M4.
+    linear = {"SEC-M1": None, "SEC-M2": "SEC-M1", "SEC-M3": "SEC-M2", "SEC-M4": "SEC-M3"}
+    feeder = in_lockout(
+        build_feeder(linear, list(linear), {"SEC-M3", "SEC-M4"}, ties=("SEC-M4",))
+    )
+    next(s for s in feeder.switches if s.mrid == "TIE-0").open = False
+
+    with pytest.raises(FlisrError, match="normally-open TIE-0 closed"):
+        build_plan(feeder, "CB-1")
+
+
 def _random_radial_feeder(rng: random.Random):
     count = rng.randint(1, 12)
     names = [f"SEC-{index:02d}" for index in range(count)]
