@@ -43,7 +43,7 @@ export interface LegacyTask {
   standard: string;
   cycle: string;
   target_module: string | null;
-  port_status: 'ported, unverified' | 'not started';
+  port_status: 'ported, verified' | 'ported, unverified' | 'not started';
   source_lines: number;
   executable_lines: number;
   program_units: string[];
@@ -58,6 +58,19 @@ export interface ParitySetpoint {
   modern_mw: number;
 }
 
+export interface CorpusParity {
+  cases: number;
+  accepted: number;
+  refused: number;
+  goldens_reproduced: number;
+  matched: number;
+  diverging: string[];
+  deadband_indeterminate: number;
+  max_ace_delta_mw: number;
+  max_setpoint_delta_mw: number;
+  worst_bound_use_pct: number;
+}
+
 export interface ModernizationReport {
   clone: string;
   platform: string;
@@ -67,8 +80,10 @@ export interface ModernizationReport {
     legacy_ace_mw: number;
     modern_ace_mw: number;
     max_abs_delta_mw: number;
+    ace_bound_mw: number;
     matches: boolean;
     setpoints: ParitySetpoint[];
+    corpus: CorpusParity;
   };
 }
 

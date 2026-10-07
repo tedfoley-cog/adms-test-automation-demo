@@ -14,6 +14,23 @@ from pathlib import Path
 
 from .models import BalancingState, TieLine, Unit
 
+# Record-table capacities of the legacy reader (MAXTIE, MAXUNT, MAXFDR in
+# hab_savecase.f90). An export that overflows one is refused, not truncated.
+MAX_TIE_LINES = 32
+MAX_UNITS = 64
+MAX_FEEDERS = 256
+
+IERR_OPEN = 1
+IERR_RECORD = 2
+
+
+class SavecaseError(ValueError):
+    """The export cannot be read; ``ierr`` matches HDB_READ_EXPORT's IERR."""
+
+    def __init__(self, ierr: int, message: str) -> None:
+        super().__init__(message)
+        self.ierr = ierr
+
 
 @dataclass
 class FeederBlock:
@@ -48,9 +65,18 @@ class Savecase:
 
 
 def load_savecase(path: Path) -> Savecase:
+    try:
+        # Byte-transparent like the Fortran reader: any byte in a comment is accepted.
+        text = path.read_text(encoding="latin-1")
+    except OSError as exc:
+        raise SavecaseError(IERR_OPEN, f"cannot open savecase export {path}: {exc}") from exc
+
     case = Savecase()
     record = ""
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    # Split on LF only: the Fortran reader does not treat NEL (0x85), FF or VT as breaks.
+    for number, raw in enumerate(text.split("\n"), start=1):
+        if raw.startswith("END"):
+            break
         line = raw.strip()
         if not line or line.startswith("*"):
             continue
@@ -61,40 +87,56 @@ def load_savecase(path: Path) -> Savecase:
         if head == "SAVECASE":
             case.name = rest.strip()
             continue
-        if head in {"CLONE", "TIMESTAMP", "END"}:
+        if head in {"CLONE", "TIMESTAMP"}:
             continue
-
-        fields = line.split()
-        if record == "FREQ":
-            case.actual_frequency_hz = float(fields[1])
-            case.scheduled_frequency_hz = float(fields[2])
-            case.frequency_bias_mw_per_0_1hz = float(fields[3])
-            case.frequency_quality = fields[4]
-        elif record == "TIELINE":
-            case.tie_lines.append(
-                TieLine(name=fields[0], actual_mw=float(fields[1]), scheduled_mw=float(fields[2]))
-            )
-        elif record == "METERR":
-            case.meter_error_mw = float(fields[1])
-        elif record == "UNIT":
-            case.units.append(
-                Unit(
-                    name=fields[0],
-                    output_mw=float(fields[1]),
-                    min_mw=float(fields[2]),
-                    max_mw=float(fields[3]),
-                    ramp_mw_per_min=float(fields[4]),
-                    participation=float(fields[5]),
-                    on_agc=fields[6] == "T",
-                )
-            )
-        elif record == "FEEDER":
-            case.feeders.append(
-                FeederBlock(
-                    id=fields[0],
-                    load_mw=float(fields[1]),
-                    shed_block=int(fields[2]),
-                    priority=int(fields[3]),
-                )
-            )
+        try:
+            _read_record(case, record, line.split())
+        except (IndexError, ValueError) as exc:
+            raise SavecaseError(
+                IERR_RECORD, f"{path.name}:{number}: unreadable {record} record: {exc}"
+            ) from exc
     return case
+
+
+def _read_record(case: Savecase, record: str, fields: list[str]) -> None:
+    if record == "FREQ":
+        case.actual_frequency_hz = float(fields[1])
+        case.scheduled_frequency_hz = float(fields[2])
+        case.frequency_bias_mw_per_0_1hz = float(fields[3])
+        case.frequency_quality = fields[4]
+    elif record == "TIELINE":
+        _check_capacity(case.tie_lines, MAX_TIE_LINES, record)
+        case.tie_lines.append(
+            TieLine(name=fields[0], actual_mw=float(fields[1]), scheduled_mw=float(fields[2]))
+        )
+        fields[3]  # noqa: B018 - quality flag is mandatory, as in the legacy reader
+    elif record == "METERR":
+        case.meter_error_mw = float(fields[1])
+    elif record == "UNIT":
+        _check_capacity(case.units, MAX_UNITS, record)
+        case.units.append(
+            Unit(
+                name=fields[0],
+                output_mw=float(fields[1]),
+                min_mw=float(fields[2]),
+                max_mw=float(fields[3]),
+                ramp_mw_per_min=float(fields[4]),
+                participation=float(fields[5]),
+                on_agc=fields[6] == "T",
+            )
+        )
+    elif record == "FEEDER":
+        _check_capacity(case.feeders, MAX_FEEDERS, record)
+        case.feeders.append(
+            FeederBlock(
+                id=fields[0],
+                load_mw=float(fields[1]),
+                shed_block=int(fields[2]),
+                priority=int(fields[3]),
+            )
+        )
+
+
+def _check_capacity(table: list, capacity: int, record: str) -> None:
+    if len(table) >= capacity:
+        raise ValueError(f"more than {capacity} {record} records")

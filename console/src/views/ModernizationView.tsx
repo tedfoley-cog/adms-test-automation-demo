@@ -9,6 +9,9 @@ interface Props {
 export default function ModernizationView({ modernization }: Props) {
   const [selected, setSelected] = useState<LegacyTask | null>(null);
   const { parity } = modernization;
+  const { corpus } = parity;
+  const pinnedTests = modernization.tasks.find((task) => task.id === 'RTGENACE')
+    ?.characterization_tests;
 
   return (
     <section className="panel">
@@ -64,7 +67,13 @@ export default function ModernizationView({ modernization }: Props) {
               </td>
               <td>
                 <span
-                  className={task.port_status === 'not started' ? 'pill pill-bad' : 'pill'}
+                  className={
+                    task.port_status === 'not started'
+                      ? 'pill pill-bad'
+                      : task.port_status === 'ported, verified'
+                        ? 'pill pill-good'
+                        : 'pill'
+                  }
                   data-testid={`legacy-status-${task.id}`}
                 >
                   {task.port_status}
@@ -105,9 +114,50 @@ export default function ModernizationView({ modernization }: Props) {
         </tbody>
       </table>
       <p className="subtle" data-testid="parity-summary">
-        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay. No
-        characterization tests exist yet, so parity is a single spot check rather than evidence.
+        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay, inside the{' '}
+        {parity.ace_bound_mw.toFixed(4)} MW single-precision bound of this savecase: the Fortran
+        stores every value as a 32-bit REAL and the 10B bias term amplifies the frequency rounding.
       </p>
+
+      <h3>Characterization corpus — RTGENACE goldens</h3>
+      <dl className="detail" data-testid="parity-corpus">
+        <div>
+          <dt>Savecases replayed</dt>
+          <dd data-testid="corpus-cases">
+            {corpus.cases} ({corpus.accepted} accepted, {corpus.refused} refused by the reader)
+          </dd>
+        </div>
+        <div>
+          <dt>Ported service matches legacy</dt>
+          <dd data-testid="corpus-matched">
+            {corpus.matched} of {corpus.cases}
+            {corpus.diverging.length > 0 && ` — diverging: ${corpus.diverging.join(', ')}`}
+          </dd>
+        </div>
+        <div>
+          <dt>Legacy binary reproduces goldens</dt>
+          <dd data-testid="corpus-reproduced">
+            {corpus.goldens_reproduced} of {corpus.cases}
+          </dd>
+        </div>
+        <div>
+          <dt>Worst-case ACE delta</dt>
+          <dd data-testid="corpus-ace-delta">
+            {corpus.max_ace_delta_mw.toFixed(4)} MW ({corpus.worst_bound_use_pct.toFixed(1)}% of
+            its bound)
+          </dd>
+        </div>
+        <div>
+          <dt>Deadband knife-edge cases</dt>
+          <dd data-testid="corpus-indeterminate">
+            {corpus.deadband_indeterminate} judged on the legacy ACE
+          </dd>
+        </div>
+        <div>
+          <dt>Characterization tests</dt>
+          <dd data-testid="corpus-tests">{pinnedTests ?? 0} pinning RTGENACE</dd>
+        </div>
+      </dl>
 
       {selected && (
         <aside className="drawer" role="dialog" aria-label="Legacy task" data-testid="legacy-drawer">
@@ -140,7 +190,9 @@ export default function ModernizationView({ modernization }: Props) {
               <dd data-testid="legacy-drawer-readiness">
                 {selected.characterization_tests === 0
                   ? 'Blocked: no behaviour is pinned before the rewrite'
-                  : 'Ready for rewrite'}
+                  : selected.parity_checked
+                    ? `Parity proven on ${corpus.cases} savecases: ready to retire`
+                    : 'Ready for rewrite'}
               </dd>
             </div>
           </dl>

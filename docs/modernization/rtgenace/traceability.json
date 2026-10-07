@@ -1,0 +1,733 @@
+{
+  "task": "RTGENACE",
+  "spec_version": "1.0",
+  "legacy_entry": "legacy/habitat/src/ace_calc.f90",
+  "modern_entry": "backend/app/rtgenace.py",
+  "pull_request": "https://github.com/tedfoley-cog/adms-test-automation-demo/pull/9",
+  "requirements": [
+    {
+      "id": "RTG-R01",
+      "area": "Savecase reader",
+      "statement": "Blank lines and lines whose first byte is '*' are comments and are ignored whatever bytes they contain; records are separated by LF only.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            85,
+            88
+          ],
+          "anchor": "IF (LINE(1:1) == '*') GO TO 10"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::load_savecase"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_rtgenace_edge_parity.py::test_non_utf8_comment_is_accepted_like_legacy",
+        "backend/tests/test_rtgenace_edge_parity.py::test_non_utf8_comment_matches_legacy",
+        "backend/tests/test_rtgenace_edge_parity.py::test_nel_byte_in_a_comment_does_not_start_a_record",
+        "backend/tests/test_rtgenace_edge_parity.py::test_nel_byte_in_a_comment_matches_legacy"
+      ],
+      "cases": [
+        "records_reordered_with_comments"
+      ],
+      "history": [
+        "F04",
+        "F09"
+      ]
+    },
+    {
+      "id": "RTG-R02",
+      "area": "Savecase reader",
+      "statement": "A 'SAVECASE <name>' line sets the case name (32 characters); CLONE and TIMESTAMP lines are ignored.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            90,
+            99
+          ],
+          "anchor": "CASE%NAME = ADJUSTL(LINE(10:))"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::load_savecase"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_reproduces_golden",
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_rtgenace_characterization.py::test_port_prints_the_legacy_report_layout_for_the_production_savecase"
+      ],
+      "cases": [
+        "production_rtnet_ems_0742"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-R03",
+      "area": "Savecase reader",
+      "statement": "'RECORD <kind>' selects how following rows are read; rows of an unknown kind are skipped.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            94,
+            97
+          ],
+          "anchor": "REC = ADJUSTL(LINE(8:))"
+        },
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            147,
+            148
+          ],
+          "anchor": "CASE DEFAULT"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::_read_record"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints"
+      ],
+      "cases": [
+        "unknown_record_skipped",
+        "records_reordered_with_comments"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-R04",
+      "area": "Savecase reader",
+      "statement": "A line starting 'END' ends the export; anything after it is ignored.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            98,
+            98
+          ],
+          "anchor": "IF (INDEX(LINE, 'END') == 1) GO TO 90"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::load_savecase"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_savecase.py::test_reads_every_record_kind_without_end_marker"
+      ],
+      "cases": [
+        "records_after_end_ignored"
+      ],
+      "history": [
+        "D2"
+      ]
+    },
+    {
+      "id": "RTG-R05",
+      "area": "Savecase reader",
+      "statement": "Row layouts: FREQ id actual sched bias qual; TIELINE id actual sched qual; METERR id value; UNIT id mw min max ramp partf agc (agc is 'T' for on AGC); FEEDER id load block prio. Values are read list-directed.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            103,
+            145
+          ],
+          "anchor": "CASE%UNT(CASE%NUNT)%AGC_UNIT   = (QUAL == 'T')"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::_read_record"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_reproduces_golden",
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_savecase.py::test_reads_every_record_kind_without_end_marker"
+      ],
+      "cases": [
+        "production_rtnet_ems_0742"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-R06",
+      "area": "Savecase reader",
+      "statement": "Tables hold at most 32 tie lines, 64 units and 256 feeders. One more record refuses the whole export with IERR=2; it is never truncated.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            13,
+            15
+          ],
+          "anchor": "INTEGER, PARAMETER :: MAXUNT = 64"
+        },
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            112,
+            112
+          ],
+          "anchor": "IF (CASE%NTIE >= MAXTIE) GO TO 80"
+        },
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            127,
+            127
+          ],
+          "anchor": "IF (CASE%NUNT >= MAXUNT) GO TO 80"
+        },
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            139,
+            139
+          ],
+          "anchor": "IF (CASE%NFDR >= MAXFDR) GO TO 80"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::MAX_UNITS",
+        "backend/app/savecase.py::_check_capacity"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_refuses_what_legacy_refuses",
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_savecase.py::test_feeder_table_overflow_is_refused",
+        "backend/tests/test_savecase.py::test_feeder_table_at_capacity_is_accepted"
+      ],
+      "cases": [
+        "tieline_table_overflow",
+        "unit_table_overflow",
+        "unit_table_full"
+      ],
+      "history": [
+        "D3"
+      ]
+    },
+    {
+      "id": "RTG-R07",
+      "area": "Savecase reader",
+      "statement": "A row that cannot be read (missing or non-numeric field) refuses the export with IERR=2.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            153,
+            156
+          ],
+          "anchor": "IERR = 2"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::IERR_RECORD",
+        "backend/app/savecase.py::load_savecase"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_refuses_what_legacy_refuses",
+        "backend/tests/test_savecase.py::test_tieline_without_quality_flag_is_refused"
+      ],
+      "cases": [
+        "malformed_unit_row",
+        "non_numeric_tieline"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-R08",
+      "area": "Savecase reader",
+      "statement": "An export that cannot be opened fails with IERR=1.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            78,
+            82
+          ],
+          "anchor": "IERR = 1"
+        }
+      ],
+      "modern": [
+        "backend/app/savecase.py::IERR_OPEN"
+      ],
+      "tests": [
+        "backend/tests/test_savecase.py::test_unreadable_file_reports_ierr_1",
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_missing_savecase_reports_ierr_1_and_stops_3",
+        "backend/tests/test_rtgenace_characterization.py::test_port_cli_matches_legacy_on_usage_and_missing_file"
+      ],
+      "cases": [],
+      "history": []
+    },
+    {
+      "id": "RTG-C01",
+      "area": "RPTACE",
+      "statement": "Reporting ACE = (sum actual tie MW - sum scheduled tie MW) - 10 * B * (F_actual - F_sched) - I_ME, with B in MW/0.1 Hz carried negative (NERC BAL-001).",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            55,
+            65
+          ],
+          "anchor": "ACE = (ANIA - ANIS) - BIASMW - CASE%VALUE_METERR"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::reporting_ace"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_agc_invariants.py::test_reporting_ace_sign_conventions"
+      ],
+      "cases": [
+        "frequency_only",
+        "meter_error_only",
+        "off_nominal_schedule",
+        "high_frequency",
+        "production_rtnet_ems_0742"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-C02",
+      "area": "ALLOCR",
+      "statement": "If |ACE| <= 5.0 MW (inclusive) every setpoint is 0.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            74,
+            82
+          ],
+          "anchor": "IF (ABS(ACE) <= DEADBD) RETURN"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::DEADBAND_MW",
+        "backend/app/agc.py::allocate_regulation_by_unit"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints"
+      ],
+      "cases": [
+        "deadband_inside",
+        "deadband_edge_positive",
+        "deadband_edge_negative",
+        "just_outside_deadband"
+      ],
+      "history": [
+        "D5"
+      ]
+    },
+    {
+      "id": "RTG-C03",
+      "area": "ALLOCR",
+      "statement": "Only units on AGC with participation factor > 0 share regulation. If that pool is empty every setpoint is 0.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            84,
+            95
+          ],
+          "anchor": "IF (CASE%UNT(I)%PARTF_UNIT <= 0.0) CYCLE"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::_regulated"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_agc_invariants.py::test_no_regulation_when_participation_pool_is_empty"
+      ],
+      "cases": [
+        "no_units_on_agc",
+        "zero_participation",
+        "negative_participation_excluded"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-C04",
+      "area": "ALLOCR",
+      "statement": "Each unit's share is -ACE * pf / sum(pf), clipped to +/- ramp_MW_per_min * 4 s / 60.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            92,
+            100
+          ],
+          "anchor": "IF (SHARE < -RAMPLM) SHARE = -RAMPLM"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::allocate_regulation_by_unit",
+        "backend/app/rtgenace.py::CONTROL_INTERVAL_S"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_agc_invariants.py::test_regulation_never_overcorrects_or_violates_ramp_and_limits"
+      ],
+      "cases": [
+        "over_generation_ramp_clip",
+        "under_generation_ramp_clip",
+        "unclipped_share"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-C05",
+      "area": "ALLOCR",
+      "statement": "Target = output + share, clipped to the unit minimum first and maximum second, so the maximum wins when min > max. A unit that starts outside its limits is moved into them, even against ACE and beyond ramp.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            102,
+            104
+          ],
+          "anchor": "IF (TARGET > CASE%UNT(I)%MAX_UNIT) TARGET = CASE%UNT(I)%MAX_UNIT"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::allocate_regulation_by_unit"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_agc_invariants.py::test_regulation_returns_out_of_limit_units_to_their_band"
+      ],
+      "cases": [
+        "min_above_max_limits",
+        "clamp_at_max",
+        "clamp_at_min",
+        "unit_above_max",
+        "unit_below_min"
+      ],
+      "history": [
+        "D1",
+        "F07"
+      ]
+    },
+    {
+      "id": "RTG-C06",
+      "area": "ALLOCR",
+      "statement": "Setpoint = target - output, one per unit row in export order, even when unit names repeat.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            106,
+            106
+          ],
+          "anchor": "SETPT(I) = TARGET - CASE%UNT(I)%MW_UNIT"
+        },
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            42,
+            44
+          ],
+          "anchor": "DO I = 1, CASE%NUNT"
+        }
+      ],
+      "modern": [
+        "backend/app/rtgenace.py::run",
+        "backend/app/agc.py::allocate_regulation_by_unit"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_edge_parity.py::test_duplicate_unit_names_keep_one_setpoint_per_row",
+        "backend/tests/test_rtgenace_edge_parity.py::test_duplicate_unit_names_match_legacy"
+      ],
+      "cases": [],
+      "history": [
+        "F01"
+      ]
+    },
+    {
+      "id": "RTG-C07",
+      "area": "ALLOCR",
+      "statement": "Safety invariant (derived from RTG-C02..C05, not new behaviour): for units within their limits, a setpoint never has the same sign as ACE, never exceeds ramp capability or unit limits, and the total never over-corrects ACE.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            68,
+            108
+          ],
+          "anchor": "SUBROUTINE ALLOCR(CASE, ACE, CYCSEC, SETPT)"
+        }
+      ],
+      "modern": [
+        "backend/app/agc.py::allocate_regulation_by_unit"
+      ],
+      "tests": [
+        "backend/tests/test_agc_invariants.py::test_regulation_never_overcorrects_or_violates_ramp_and_limits",
+        "backend/tests/test_agc_invariants.py::test_regulation_returns_out_of_limit_units_to_their_band"
+      ],
+      "cases": [],
+      "history": [
+        "F07"
+      ]
+    },
+    {
+      "id": "RTG-O01",
+      "area": "Report",
+      "statement": "Report lines: 'SAVECASE <name>', 'ACE_MW   ' + F12.4, then per unit 'SETPT    ' + A20 + F12.4. A value too wide for F12.4 prints as 12 asterisks.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            40,
+            44
+          ],
+          "anchor": "WRITE(*, '(A,A20,F12.4)') 'SETPT    ', CASE%UNT(I)%ID_UNIT, SETPT(I)"
+        }
+      ],
+      "modern": [
+        "backend/app/rtgenace.py::format_report",
+        "backend/app/rtgenace.py::_fortran_f"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_reproduces_golden",
+        "backend/tests/test_rtgenace_characterization.py::test_port_prints_the_legacy_report_layout_for_the_production_savecase",
+        "backend/tests/test_rtgenace_edge_parity.py::test_ace_too_wide_for_f12_4_prints_asterisks",
+        "backend/tests/test_rtgenace_edge_parity.py::test_ace_too_wide_for_f12_4_matches_legacy"
+      ],
+      "cases": [
+        "production_rtnet_ems_0742"
+      ],
+      "history": [
+        "F05"
+      ]
+    },
+    {
+      "id": "RTG-O02",
+      "area": "Report",
+      "statement": "Exit status 0 on success; 2 with a usage line when no path is given; 3 with 'savecase read failed, ierr=NN' when the reader refuses the export.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            25,
+            35
+          ],
+          "anchor": "STOP 3"
+        }
+      ],
+      "modern": [
+        "backend/app/rtgenace.py::main",
+        "backend/app/rtgenace.py::EXIT_READ_FAILED"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_without_argument_prints_usage_and_stops_2",
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_missing_savecase_reports_ierr_1_and_stops_3",
+        "backend/tests/test_rtgenace_characterization.py::test_port_cli_matches_legacy_on_usage_and_missing_file",
+        "backend/tests/test_rtgenace_characterization.py::test_port_refuses_what_legacy_refuses"
+      ],
+      "cases": [
+        "malformed_unit_row"
+      ],
+      "history": []
+    },
+    {
+      "id": "RTG-P01",
+      "area": "Parity",
+      "statement": "The legacy stores every value as REAL (binary32); the port computes in binary64. A difference is accepted only within the bound derived for that savecase from float32 representation and arithmetic error, never a fixed tolerance.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/hab_savecase.f90",
+          "lines": [
+            32,
+            40
+          ],
+          "anchor": "REAL              :: PARTF_UNIT = 0.0"
+        }
+      ],
+      "modern": [
+        "backend/app/rtgenace.py::ace_parity_bound",
+        "backend/app/rtgenace.py::setpoint_parity_bound"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_agc_invariants.py::test_port_matches_live_legacy_binary_on_seeded_savecases"
+      ],
+      "cases": [
+        "production_rtnet_ems_0742"
+      ],
+      "history": [
+        "D4"
+      ]
+    },
+    {
+      "id": "RTG-P02",
+      "area": "Parity",
+      "statement": "Where float32 alone could put ACE either side of the deadband, the printed legacy ACE decides: printed outside 5.0000, the units must regulate; printed inside, all setpoints are 0; printed exactly 5.0000, either is accepted.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            82,
+            82
+          ],
+          "anchor": "IF (ABS(ACE) <= DEADBD) RETURN"
+        }
+      ],
+      "modern": [
+        "backend/app/rtgenace.py::deadband_indeterminate",
+        "backend/app/rtgenace.py::legacy_setpoints_consistent"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_port_reproduces_legacy_ace_and_setpoints",
+        "backend/tests/test_rtgenace_edge_parity.py::test_knife_edge_legacy_ace_printed_as_deadband_value_is_still_consistent",
+        "backend/tests/test_rtgenace_edge_parity.py::test_knife_edge_legacy_ace_off_the_edge_fixes_the_deadband_decision"
+      ],
+      "cases": [
+        "deadband_float32_knife_edge"
+      ],
+      "history": [
+        "D5",
+        "F03",
+        "F08"
+      ]
+    },
+    {
+      "id": "RTG-P03",
+      "area": "Parity",
+      "statement": "The characterization gate: the legacy binary must still print every golden byte for byte, and a port is shown as verified only if every characterization test passes.",
+      "legacy": [
+        {
+          "file": "legacy/habitat/src/ace_calc.f90",
+          "lines": [
+            15,
+            15
+          ],
+          "anchor": "PROGRAM RTGENACE"
+        }
+      ],
+      "modern": [
+        "tools/build_legacy_inventory.py::characterization_tests"
+      ],
+      "tests": [
+        "backend/tests/test_rtgenace_characterization.py::test_legacy_binary_reproduces_golden"
+      ],
+      "cases": [],
+      "history": [
+        "F02",
+        "F10"
+      ]
+    }
+  ],
+  "history": [
+    {
+      "id": "D1",
+      "kind": "pre-port divergence",
+      "summary": "agc.py clamped max first, min second; ALLOCR clamps min first, max second. When min > max the setpoint was off by 20 MW.",
+      "resolution": "Clamp order aligned to ALLOCR.",
+      "commit": "e635902f2734269c222b103cab26f224e80231d8"
+    },
+    {
+      "id": "D2",
+      "kind": "pre-port divergence",
+      "summary": "savecase.py kept reading records after END.",
+      "resolution": "Reader stops at END.",
+      "commit": "e635902f2734269c222b103cab26f224e80231d8"
+    },
+    {
+      "id": "D3",
+      "kind": "pre-port divergence",
+      "summary": "savecase.py accepted more than MAXTIE/MAXUNT records, which the legacy refuses with IERR=2.",
+      "resolution": "Table capacities enforced; overflow raises SavecaseError(2).",
+      "commit": "e635902f2734269c222b103cab26f224e80231d8"
+    },
+    {
+      "id": "D4",
+      "kind": "pre-port divergence",
+      "summary": "7 corpus cases differed only by float32 rounding, which the fixed 0.01 MW tolerance rejected.",
+      "resolution": "Fixed tolerance replaced by ace_parity_bound / setpoint_parity_bound.",
+      "commit": "e635902f2734269c222b103cab26f224e80231d8"
+    },
+    {
+      "id": "D5",
+      "kind": "pre-port divergence",
+      "summary": "One knife-edge case where float32 put the legacy ACE on the other side of the 5 MW deadband.",
+      "resolution": "deadband_indeterminate rule (RTG-P02).",
+      "commit": "e635902f2734269c222b103cab26f224e80231d8"
+    },
+    {
+      "id": "F01",
+      "kind": "review finding",
+      "summary": "Duplicate unit names collapsed to one setpoint (dict keyed by name).",
+      "resolution": "fixed: allocate_regulation_by_unit returns one setpoint per row.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F02",
+      "kind": "review finding",
+      "summary": "Inventory counted collected characterization tests, so failing ones still showed 'verified'.",
+      "resolution": "fixed: inventory runs the suite and counts passing tests only.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F03",
+      "kind": "review finding",
+      "summary": "Rounded legacy ACE of 5.0000 rejected valid nonzero legacy setpoints.",
+      "resolution": "fixed: legacy_setpoints_consistent.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F04",
+      "kind": "review finding",
+      "summary": "Non-UTF-8 bytes in comments aborted the reader.",
+      "resolution": "fixed: byte-transparent latin-1 read.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F05",
+      "kind": "review finding",
+      "summary": "ACE wider than F12.4 broke the report layout.",
+      "resolution": "fixed: _fortran_f prints asterisks like Fortran.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F06",
+      "kind": "review finding",
+      "summary": "Coverage report could publish without data for a firmware source.",
+      "resolution": "fixed: build_coverage_report refuses to publish.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F07",
+      "kind": "review finding",
+      "summary": "Regulation of units outside their limits needed an explicit invariant.",
+      "resolution": "fixed: 500-seed out-of-limit invariant.",
+      "commit": "1f71151d8d8ca65fdbc08dda7314d28a075a48c7"
+    },
+    {
+      "id": "F08",
+      "kind": "review finding",
+      "summary": "Knife-edge check accepted impossible outputs (zeros with legacy ACE outside the deadband, regulation inside it).",
+      "resolution": "fixed: printed legacy ACE decides the side unless it is exactly 5.0000.",
+      "commit": "85e47093a91777c9363a39883a5451cf8e81f3b9"
+    },
+    {
+      "id": "F09",
+      "kind": "review finding",
+      "summary": "Byte 0x85 (NEL) in a comment split the line, turning comment text into a record.",
+      "resolution": "fixed: split on LF only.",
+      "commit": "85e47093a91777c9363a39883a5451cf8e81f3b9"
+    },
+    {
+      "id": "F10",
+      "kind": "review finding",
+      "summary": "Displayed characterization counts depend on gfortran being installed.",
+      "resolution": "needs human: intended; inventory cannot run without gfortran and skipped tests can only block 'verified'.",
+      "commit": null
+    }
+  ]
+}

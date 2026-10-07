@@ -8,8 +8,8 @@
       "function": "Reporting ACE and regulation allocation",
       "standard": "NERC BAL-001",
       "cycle": "4 s",
-      "target_module": "app/agc.py",
-      "port_status": "ported, unverified",
+      "target_module": "app/rtgenace.py",
+      "port_status": "ported, verified",
       "source_lines": 110,
       "executable_lines": 74,
       "program_units": [
@@ -17,8 +17,8 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 98.7,
+      "characterization_tests": 142,
       "parity_checked": true
     },
     {
@@ -45,16 +45,16 @@
       "standard": "HDB record conventions",
       "cycle": "library",
       "target_module": "app/savecase.py",
-      "port_status": "ported, unverified",
+      "port_status": "ported, verified",
       "source_lines": 163,
       "executable_lines": 130,
       "program_units": [
         "HAB_SAVECASE",
         "HDB_READ_EXPORT"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
-      "parity_checked": false
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 19,
+      "parity_checked": true
     }
   ],
   "parity": {
@@ -62,6 +62,7 @@
     "legacy_ace_mw": -116.3462,
     "modern_ace_mw": -116.34,
     "max_abs_delta_mw": 0.0062,
+    "ace_bound_mw": 0.0069,
     "matches": true,
     "setpoints": [
       {
@@ -84,6 +85,18 @@
         "legacy_mw": 0.0,
         "modern_mw": 0.0
       }
-    ]
+    ],
+    "corpus": {
+      "cases": 69,
+      "accepted": 65,
+      "refused": 4,
+      "goldens_reproduced": 69,
+      "matched": 69,
+      "diverging": [],
+      "deadband_indeterminate": 3,
+      "max_ace_delta_mw": 0.026,
+      "max_setpoint_delta_mw": 0.0001,
+      "worst_bound_use_pct": 99.0
+    }
   }
 }
