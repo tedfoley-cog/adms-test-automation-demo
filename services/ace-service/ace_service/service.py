@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from . import __version__
-from .ace import dispatch
+from .ace import NonFiniteResult, dispatch
 from .hdb_export import SavecaseError, parse_export, to_area_payload
 from .schemas import AreaState, DispatchResult
 
@@ -32,6 +32,11 @@ async def _invalid_request(_: Request, exc: RequestValidationError) -> JSONRespo
     # The default handler echoes the input back, which fails on NaN/Infinity (D-1).
     errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
     return JSONResponse(status_code=422, content={"detail": errors})
+
+
+@app.exception_handler(NonFiniteResult)
+async def _non_finite(_: Request, exc: NonFiniteResult) -> JSONResponse:
+    return _refusal(2, str(exc))
 
 
 @app.get("/health")

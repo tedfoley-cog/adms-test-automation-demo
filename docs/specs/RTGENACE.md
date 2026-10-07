@@ -52,7 +52,7 @@ re-implementation in `app/agc.py`. That module is removed: the logic now lives o
 | SC-4 | `RECORD <type>` in column 1 selects the record type for the following lines. Surrounding blanks are ignored, but the type must match exactly in upper case. Unknown or lower-case types are silently skipped [C21] | `:101-104`, `SELECT CASE` default |
 | SC-5 | Any line whose first three characters are `END` stops the read and keeps what was read so far. This includes `ENDOFDATA` [C22]. `END` that is indented is parsed as data and fails [H05] | `:105` |
 | SC-6 | `CLONE` and `TIMESTAMP` lines in column 1 are skipped | `:106` |
-| SC-7 | Data lines are read list-directed: fields are separated by blanks or commas, apostrophes or quotes may wrap a field containing blanks, and trailing extra fields are ignored [C19, C21]. Real numbers accept `E` or `D` exponents [H10] | `READ(LINE, *)` |
+| SC-7 | Data lines are read list-directed: fields are separated by blanks, tabs or commas, apostrophes or quotes may wrap a field containing blanks, and trailing extra fields are ignored [C19, C21; tabs: `test_tab_separated_data_records_match_legacy`]. Real numbers accept `E` or `D` exponents [H10] | `READ(LINE, *)` |
 | SC-8 | Identifiers are `CHARACTER(20)`: longer IDs are truncated to 20 characters [C20] | `:16,25,33` |
 | SC-9 | Record layouts. `FREQ`: id, actual Hz, scheduled Hz, bias MW/0.1 Hz, quality. `TIELINE`: id, actual MW, scheduled MW, quality. `METERR`: id, MW. `UNIT`: id, MW, min, max, ramp MW/min, participation, AGC flag. `FEEDER`: id, MW, block, priority | `:109-151` |
 | SC-10 | A unit is on AGC only if the first character of its AGC flag is upper-case `T`. So `T` and `TRUE` mean on; `t` means off [C18] | `:144` |
@@ -152,7 +152,7 @@ test. None of these inputs occurs in a well-formed hdbexport.
 
 | ID | Input | Legacy behaviour (pinned) | Service |
 |---|---|---|---|
-| D-1 | NaN or infinite telemetry | NaN frequency → `ACE_MW NaN` and NaN setpoints. Infinite tie flow → `ACE_MW Infinity` with a full ramp move [D01, D02] | 422 |
+| D-1 | NaN or infinite telemetry | NaN frequency → `ACE_MW NaN` and NaN setpoints. Infinite tie flow → `ACE_MW Infinity` with a full ramp move [D01, D02]. Finite inputs whose sums overflow are refused the same way | 422 |
 | D-2 | Duplicate unit IDs, including after 20-character truncation | Issues a setpoint per row; whoever consumes it by unit ID gets an ambiguous answer [D03] | 422 |
 | D-3 | `MIN_UNIT > MAX_UNIT` | Target collapses to max: a +20 MW move against ACE in one cycle [D04] | 422 |
 | D-4 | Negative `RAMP_UNIT` | The ramp clip inverts and the unit moves *with* ACE (+0.4 MW when it should be −0.4) [D05] | 422 |

@@ -52,6 +52,7 @@ class FakeAceService:
     def __init__(self) -> None:
         self.status = 200
         self.body: object = SERVICE_RESULT
+        self.raw: bytes | None = None
         self.delay_s = 0.0
         self.requests: list[tuple[str, dict]] = []
         fake = self
@@ -61,7 +62,7 @@ class FakeAceService:
                 length = int(self.headers["content-length"])
                 fake.requests.append((self.path, json.loads(self.rfile.read(length))))
                 time.sleep(fake.delay_s)
-                payload = json.dumps(fake.body).encode()
+                payload = fake.raw if fake.raw is not None else json.dumps(fake.body).encode()
                 self.send_response(fake.status)
                 self.send_header("content-type", "application/json")
                 self.send_header("content-length", str(len(payload)))
@@ -125,6 +126,30 @@ def test_service_refusal_is_returned_as_422(ace_service):
 
     assert response.status_code == 422
     assert "duplicate unit id GEN.A" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("raw", "body"),
+    [(b"<html>not json</html>", None), (None, {"ace_mw": -51.5}), (None, ["not", "an", "object"])],
+)
+def test_malformed_service_reply_fails_safe_with_503(ace_service, raw, body):
+    ace_service.raw = raw
+    ace_service.body = body
+
+    response = client.post("/agc/dispatch", json=REQUEST)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "ace-service returned a malformed reply"
+
+
+def test_unparseable_refusal_is_still_422(ace_service):
+    ace_service.status = 422
+    ace_service.raw = b"refused"
+
+    response = client.post("/agc/dispatch", json=REQUEST)
+
+    assert response.status_code == 422
+    assert "unparseable refusal" in response.json()["detail"]
 
 
 def test_service_error_fails_safe_with_503(ace_service):

@@ -70,15 +70,27 @@ def dispatch(state: BalancingState, units: list[Unit]) -> dict[str, object]:
             result = json.load(response)
     except urllib.error.HTTPError as exc:
         if exc.code == 422:
-            raise AceServiceRejected(json.load(exc).get("detail")) from exc
+            raise AceServiceRejected(_refusal_detail(exc)) from exc
         raise AceServiceUnavailable(f"ace-service returned HTTP {exc.code}") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise AceServiceUnavailable(f"ace-service unreachable at {url}: {exc}") from exc
+    except ValueError as exc:
+        raise AceServiceUnavailable("ace-service returned a malformed reply") from exc
 
-    return {
-        "ace_mw": result["ace_mw"],
-        "setpoint_deltas_mw": {
-            setpoint["unit"]: setpoint["setpoint_delta_mw"] for setpoint in result["setpoints"]
-        },
-        "warnings": result.get("warnings", []),
-    }
+    try:
+        return {
+            "ace_mw": float(result["ace_mw"]),
+            "setpoint_deltas_mw": {
+                str(sp["unit"]): float(sp["setpoint_delta_mw"]) for sp in result["setpoints"]
+            },
+            "warnings": list(result.get("warnings", [])),
+        }
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise AceServiceUnavailable("ace-service returned a malformed reply") from exc
+
+
+def _refusal_detail(exc: urllib.error.HTTPError) -> object:
+    try:
+        return json.load(exc).get("detail")
+    except (ValueError, AttributeError):
+        return "unparseable refusal"

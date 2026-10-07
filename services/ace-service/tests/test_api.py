@@ -145,3 +145,25 @@ def test_feeders_are_read_and_validated():
 def test_blank_quoted_quality_is_kept_as_blank():
     case = parse_export("RECORD FREQ\n  AREA  60.0  60.0  -500.0  ''\n")
     assert case.frequency_quality == " "
+
+
+def test_finite_inputs_that_overflow_are_refused_not_500():
+    area = {
+        "frequency": {"actual_hz": 60.0, "bias_mw_per_0_1hz": -50.0},
+        "tie_lines": [
+            {"id": "T1", "actual_mw": 1e308, "scheduled_mw": 0.0},
+            {"id": "T2", "actual_mw": 1e308, "scheduled_mw": 0.0},
+        ],
+        "units": [],
+    }
+    response = TestClient(app).post("/v1/rtgenace/dispatch", json=area)
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "ierr": 2,
+        "detail": "area state overflows to a non-finite ACE or setpoint",
+    }
+
+
+def test_tab_separated_fields_split_like_blanks():
+    assert split_fields("GEN.A\t100.0 \t, 5\t'x\ty'") == ["GEN.A", "100.0", "5", "x\ty"]

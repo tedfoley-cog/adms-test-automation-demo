@@ -163,16 +163,23 @@ def main() -> None:
     coverage = coverage_by_module()
 
     tasks = []
+    failed: list[str] = []
     for task in TASKS:
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
         suite = task.pop("characterization_suite")
+        pinned = counts.get(suite, 0) if suite else 0
+        if task["port_status"] == "extracted to service, verified" and not (
+            pinned and parity["matches"] and parity["sweep"]["failures"] == 0
+        ):
+            task["port_status"] = "ported, unverified"
+            failed.append(task["id"])
         tasks.append(
             {
                 **task,
                 **stats,
                 "target_coverage_pct": coverage.get(target) if target else None,
-                "characterization_tests": counts.get(suite, 0) if suite else 0,
+                "characterization_tests": pinned,
                 "parity_checked": task["id"] == "RTGENACE",
             }
         )
@@ -192,6 +199,8 @@ def main() -> None:
         f"(tolerance {parity['tolerance_mw']} MW), seeded parity: {sweep['cases']} cases / "
         f"{sweep['failures']} failures, characterization tests: {sum(counts.values())}"
     )
+    if failed:
+        sys.exit(f"parity evidence failed for {', '.join(failed)}; reported as unverified")
 
 
 if __name__ == "__main__":

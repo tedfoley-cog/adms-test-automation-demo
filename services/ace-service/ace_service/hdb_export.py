@@ -45,13 +45,16 @@ class ExportRecords:
     feeders: list[dict[str, object]] = field(default_factory=list)
 
 
+_BLANKS = " \t"
+
+
 def split_fields(text: str) -> list[str]:
-    """List-directed field split: blanks or one comma separate, quotes group (SC-7).
+    """List-directed field split: blanks/tabs or one comma separate, quotes group (SC-7).
     Null values, repeat counts and slash terminators are refused (D-5)."""
     fields: list[str] = []
     index, length = 0, len(text)
     while True:
-        while index < length and text[index] == " ":
+        while index < length and text[index] in _BLANKS:
             index += 1
         if index >= length:
             return fields
@@ -77,13 +80,13 @@ def split_fields(text: str) -> list[str]:
             fields.append("".join(token))
         else:
             start = index
-            while index < length and text[index] not in " ,/":
+            while index < length and text[index] not in _BLANKS + ",/":
                 index += 1
             token = text[start:index]
             if _REPEAT.match(token):
                 raise ValueError(f"repeat count {token!r} in list-directed input")
             fields.append(token)
-        while index < length and text[index] == " ":
+        while index < length and text[index] in _BLANKS:
             index += 1
         if index < length and text[index] == ",":
             index += 1

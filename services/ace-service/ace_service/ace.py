@@ -7,6 +7,8 @@ with B in MW/0.1 Hz, negative by convention. Requirement IDs refer to docs/specs
 
 from __future__ import annotations
 
+import math
+
 from .schemas import AreaState, DispatchResult, Unit, UnitSetpoint
 
 DEADBAND_MW = 5.0
@@ -79,9 +81,15 @@ def _warnings(area: AreaState) -> list[str]:
     return notes
 
 
+class NonFiniteResult(ValueError):
+    """Finite inputs whose sums overflow; RTGENACE would emit Infinity setpoints (D-1)."""
+
+
 def dispatch(area: AreaState) -> DispatchResult:
     ace = reporting_ace(area)
     deltas = allocate_regulation(area.units, ace)
+    if not all(math.isfinite(value) for value in (ace, *deltas)):
+        raise NonFiniteResult("area state overflows to a non-finite ACE or setpoint")
     return DispatchResult(
         savecase=area.savecase,
         ace_mw=_rounded(ace),
