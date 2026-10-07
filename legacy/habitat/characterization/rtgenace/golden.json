@@ -1,0 +1,805 @@
+{
+ "clamp_at_max": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE CLAMP_MAX",
+   "ACE_MW       -40.0000",
+   "SETPT    GEN.PEAKER                0.5000"
+  ]
+ },
+ "clamp_at_min": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE CLAMP_MIN",
+   "ACE_MW        40.0000",
+   "SETPT    GEN.BASE                 -0.4000"
+  ]
+ },
+ "deadband_edge_negative": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE DEADBAND_EDGE_NEG",
+   "ACE_MW        -5.0000",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "deadband_edge_positive": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE DEADBAND_EDGE_POS",
+   "ACE_MW         5.0000",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "deadband_float32_knife_edge": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE KNIFE_EDGE",
+   "ACE_MW         4.9969",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "deadband_inside": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE DEADBAND_INSIDE",
+   "ACE_MW         3.2000",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "frequency_only": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE FREQ_ONLY",
+   "ACE_MW      -205.9969",
+   "SETPT    GEN.HARBOR1               0.4000",
+   "SETPT    GEN.HARBOR2               0.4000",
+   "SETPT    GEN.MESQUITE_CT           1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "high_frequency": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE HIGH_FREQ",
+   "ACE_MW       311.9987",
+   "SETPT    GEN.HARBOR1              -0.4000",
+   "SETPT    GEN.HARBOR2              -0.4000",
+   "SETPT    GEN.MESQUITE_CT          -1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "just_outside_deadband": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE OUTSIDE_DEADBAND",
+   "ACE_MW         5.5000",
+   "SETPT    GEN.HARBOR1              -0.4000",
+   "SETPT    GEN.HARBOR2              -0.4000",
+   "SETPT    GEN.MESQUITE_CT          -1.1000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "malformed_unit_row": {
+  "exit_code": 3,
+  "stdout": [
+   "RTGENACE: savecase read failed, ierr= 2"
+  ]
+ },
+ "meter_error_only": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE METERR_ONLY",
+   "ACE_MW        12.5000",
+   "SETPT    GEN.HARBOR1              -0.4000",
+   "SETPT    GEN.HARBOR2              -0.4000",
+   "SETPT    GEN.MESQUITE_CT          -1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "min_above_max_limits": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE BAD_LIMITS",
+   "ACE_MW       -30.0000",
+   "SETPT    GEN.BADLIMITS            30.0000"
+  ]
+ },
+ "negative_participation_excluded": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE NEG_PF",
+   "ACE_MW       -50.0000",
+   "SETPT    GEN.A                     4.0000",
+   "SETPT    GEN.B                     0.0000",
+   "SETPT    GEN.C                     4.0000"
+  ]
+ },
+ "no_units_on_agc": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE NO_AGC",
+   "ACE_MW       -50.0000",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "non_numeric_tieline": {
+  "exit_code": 3,
+  "stdout": [
+   "RTGENACE: savecase read failed, ierr= 2"
+  ]
+ },
+ "off_nominal_schedule": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE TLB_SCHED",
+   "ACE_MW        -0.7645",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "over_generation_ramp_clip": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE OVERGEN_RAMP",
+   "ACE_MW       180.0000",
+   "SETPT    GEN.HARBOR1              -0.4000",
+   "SETPT    GEN.HARBOR2              -0.4000",
+   "SETPT    GEN.MESQUITE_CT          -1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "production_rtnet_ems_0742": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RTNET_EMS_0742",
+   "ACE_MW      -116.3462",
+   "SETPT    GEN.HARBOR1               0.4000",
+   "SETPT    GEN.HARBOR2               0.4000",
+   "SETPT    GEN.MESQUITE_CT           1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "random_001": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_001",
+   "ACE_MW       101.3562",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000"
+  ]
+ },
+ "random_002": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_002",
+   "ACE_MW       -52.2379",
+   "SETPT    GEN.R00                   1.9133",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                  -8.8000",
+   "SETPT    GEN.R04                   1.9800",
+   "SETPT    GEN.R05                   0.0000"
+  ]
+ },
+ "random_003": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_003",
+   "ACE_MW      -125.1803",
+   "SETPT    GEN.R00                   1.3467",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                  -9.4000",
+   "SETPT    GEN.R04                   1.8533",
+   "SETPT    GEN.R05                   0.0000",
+   "SETPT    GEN.R06                   0.6867",
+   "SETPT    GEN.R07                  -3.7000"
+  ]
+ },
+ "random_004": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_004",
+   "ACE_MW        37.4428",
+   "SETPT    GEN.R00                  -1.4133"
+  ]
+ },
+ "random_005": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_005",
+   "ACE_MW       -46.8369",
+   "SETPT    GEN.R00                   0.7867",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                   0.5333",
+   "SETPT    GEN.R06                   0.0000",
+   "SETPT    GEN.R07                   1.1067"
+  ]
+ },
+ "random_006": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_006",
+   "ACE_MW      -101.6891",
+   "SETPT    GEN.R00                  -1.7000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   1.0600"
+  ]
+ },
+ "random_007": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_007",
+   "ACE_MW       -40.7949",
+   "SETPT    GEN.R00                   1.9000",
+   "SETPT    GEN.R01                   1.2267",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   1.3733"
+  ]
+ },
+ "random_008": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_008",
+   "ACE_MW        -8.4707",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.3867",
+   "SETPT    GEN.R02                   0.4667",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   1.8067",
+   "SETPT    GEN.R05                   0.3400"
+  ]
+ },
+ "random_009": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_009",
+   "ACE_MW      -229.5934",
+   "SETPT    GEN.R00                   0.9133",
+   "SETPT    GEN.R01                   1.3200",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   1.6600",
+   "SETPT    GEN.R04                   1.7733"
+  ]
+ },
+ "random_010": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_010",
+   "ACE_MW       -61.8607",
+   "SETPT    GEN.R00                   0.1000",
+   "SETPT    GEN.R01                   0.7533"
+  ]
+ },
+ "random_011": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_011",
+   "ACE_MW      -173.2518",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.6200"
+  ]
+ },
+ "random_012": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_012",
+   "ACE_MW       -19.0739",
+   "SETPT    GEN.R00                   1.1133",
+   "SETPT    GEN.R01                   1.4600",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.5667",
+   "SETPT    GEN.R04                   0.4000"
+  ]
+ },
+ "random_013": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_013",
+   "ACE_MW      -365.8200",
+   "SETPT    GEN.R00                   1.8400",
+   "SETPT    GEN.R01                   1.1000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000"
+  ]
+ },
+ "random_014": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_014",
+   "ACE_MW        83.7039",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                  -7.4000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000"
+  ]
+ },
+ "random_015": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_015",
+   "ACE_MW       -76.2245",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   1.8000",
+   "SETPT    GEN.R02                  -2.7000",
+   "SETPT    GEN.R03                   1.2333",
+   "SETPT    GEN.R04                   1.2667"
+  ]
+ },
+ "random_016": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_016",
+   "ACE_MW      -289.5310",
+   "SETPT    GEN.R00                  -5.9000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.5667",
+   "SETPT    GEN.R03                   1.5867",
+   "SETPT    GEN.R04                   0.0000"
+  ]
+ },
+ "random_017": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_017",
+   "ACE_MW       -90.6939",
+   "SETPT    GEN.R00                   1.3733",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   1.5933",
+   "SETPT    GEN.R03                   1.6933",
+   "SETPT    GEN.R04                   0.3333",
+   "SETPT    GEN.R05                   0.8800"
+  ]
+ },
+ "random_018": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_018",
+   "ACE_MW       -68.8171",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   1.1800",
+   "SETPT    GEN.R02                   0.0000"
+  ]
+ },
+ "random_019": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_019",
+   "ACE_MW        18.7396",
+   "SETPT    GEN.R00                  -0.2533"
+  ]
+ },
+ "random_020": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_020",
+   "ACE_MW        46.0568",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                   0.0000",
+   "SETPT    GEN.R06                  -0.6800"
+  ]
+ },
+ "random_021": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_021",
+   "ACE_MW      -111.2151",
+   "SETPT    GEN.R00                   1.1267"
+  ]
+ },
+ "random_022": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_022",
+   "ACE_MW       195.8291",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                  -1.8533",
+   "SETPT    GEN.R02                  -1.2067"
+  ]
+ },
+ "random_023": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_023",
+   "ACE_MW       -68.9546",
+   "SETPT    GEN.R00                  -0.5000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000"
+  ]
+ },
+ "random_024": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_024",
+   "ACE_MW        -3.6139",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                   0.0000"
+  ]
+ },
+ "random_025": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_025",
+   "ACE_MW        91.5425",
+   "SETPT    GEN.R00                  -1.1333",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                  -0.3000",
+   "SETPT    GEN.R03                  -5.6000"
+  ]
+ },
+ "random_026": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_026",
+   "ACE_MW      -199.8055",
+   "SETPT    GEN.R00                   1.0400",
+   "SETPT    GEN.R01                   6.9000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   1.5000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                   0.9267",
+   "SETPT    GEN.R06                   0.8400"
+  ]
+ },
+ "random_027": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_027",
+   "ACE_MW       107.8284",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                  -1.1867",
+   "SETPT    GEN.R03                  -1.6200"
+  ]
+ },
+ "random_028": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_028",
+   "ACE_MW       176.9172",
+   "SETPT    GEN.R00                   0.2000",
+   "SETPT    GEN.R01                  -1.0267",
+   "SETPT    GEN.R02                   1.6000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                  -1.1333",
+   "SETPT    GEN.R06                   0.0000",
+   "SETPT    GEN.R07                   0.0000"
+  ]
+ },
+ "random_029": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_029",
+   "ACE_MW       -98.6268",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   1.2933",
+   "SETPT    GEN.R02                   1.3867",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   1.0267",
+   "SETPT    GEN.R05                   0.1133",
+   "SETPT    GEN.R06                   0.0000",
+   "SETPT    GEN.R07                   0.0000"
+  ]
+ },
+ "random_030": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_030",
+   "ACE_MW       112.8583",
+   "SETPT    GEN.R00                  -1.0267",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                  -0.6600",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                  -1.0067",
+   "SETPT    GEN.R05                  -0.4000",
+   "SETPT    GEN.R06                   0.0000",
+   "SETPT    GEN.R07                  -1.6200"
+  ]
+ },
+ "random_031": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_031",
+   "ACE_MW       -85.3885",
+   "SETPT    GEN.R00                   1.1133"
+  ]
+ },
+ "random_032": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_032",
+   "ACE_MW        21.6971",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000"
+  ]
+ },
+ "random_033": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_033",
+   "ACE_MW      -135.4371",
+   "SETPT    GEN.R00                   0.4467"
+  ]
+ },
+ "random_034": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_034",
+   "ACE_MW      -162.9936",
+   "SETPT    GEN.R00                  -4.3000",
+   "SETPT    GEN.R01                   0.8733",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   9.8000"
+  ]
+ },
+ "random_035": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_035",
+   "ACE_MW       -95.2956",
+   "SETPT    GEN.R00                   1.4000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000"
+  ]
+ },
+ "random_036": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_036",
+   "ACE_MW       -41.9077",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.6867"
+  ]
+ },
+ "random_037": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_037",
+   "ACE_MW         9.8118",
+   "SETPT    GEN.R00                  -0.7973",
+   "SETPT    GEN.R01                  -1.1933",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                   0.0000",
+   "SETPT    GEN.R04                   0.0000",
+   "SETPT    GEN.R05                  -1.6400"
+  ]
+ },
+ "random_038": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_038",
+   "ACE_MW       359.2466",
+   "SETPT    GEN.R00                  -0.9867",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                  -1.5133",
+   "SETPT    GEN.R04                  -0.8800"
+  ]
+ },
+ "random_039": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_039",
+   "ACE_MW      -159.9391",
+   "SETPT    GEN.R00                   0.0000",
+   "SETPT    GEN.R01                   0.0000",
+   "SETPT    GEN.R02                   1.9400",
+   "SETPT    GEN.R03                   0.4400",
+   "SETPT    GEN.R04                   1.5933",
+   "SETPT    GEN.R05                   0.0000",
+   "SETPT    GEN.R06                   0.7133"
+  ]
+ },
+ "random_040": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE RANDOM_040",
+   "ACE_MW       214.2311",
+   "SETPT    GEN.R00                  -1.3933",
+   "SETPT    GEN.R01                  -8.8000",
+   "SETPT    GEN.R02                   0.0000",
+   "SETPT    GEN.R03                  -2.6000",
+   "SETPT    GEN.R04                   0.0000"
+  ]
+ },
+ "records_after_end_ignored": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE AFTER_END",
+   "ACE_MW       -30.0000",
+   "SETPT    GEN.HARBOR1               0.4000",
+   "SETPT    GEN.HARBOR2               0.4000",
+   "SETPT    GEN.MESQUITE_CT           1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "records_reordered_with_comments": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE REORDERED",
+   "ACE_MW        20.1931",
+   "SETPT    GEN.A                    -2.0000",
+   "SETPT    GEN.B                    -2.0000"
+  ]
+ },
+ "tieline_table_overflow": {
+  "exit_code": 3,
+  "stdout": [
+   "RTGENACE: savecase read failed, ierr= 2"
+  ]
+ },
+ "unclipped_share": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE UNCLIPPED",
+   "ACE_MW        -6.0000",
+   "SETPT    GEN.A                     3.0000",
+   "SETPT    GEN.B                     3.0000"
+  ]
+ },
+ "under_generation_ramp_clip": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE UNDERGEN_RAMP",
+   "ACE_MW      -180.0000",
+   "SETPT    GEN.HARBOR1               0.4000",
+   "SETPT    GEN.HARBOR2               0.4000",
+   "SETPT    GEN.MESQUITE_CT           1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "unit_above_max": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE ABOVE_MAX",
+   "ACE_MW       -20.0000",
+   "SETPT    GEN.OVERRUN             -15.0000"
+  ]
+ },
+ "unit_below_min": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE BELOW_MIN",
+   "ACE_MW        20.0000",
+   "SETPT    GEN.STARTING             30.0000"
+  ]
+ },
+ "unit_table_full": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE UNIT_FULL",
+   "ACE_MW       -30.0000",
+   "SETPT    GEN.U00                   0.4000",
+   "SETPT    GEN.U01                   0.4000",
+   "SETPT    GEN.U02                   0.4000",
+   "SETPT    GEN.U03                   0.4000",
+   "SETPT    GEN.U04                   0.4000",
+   "SETPT    GEN.U05                   0.4000",
+   "SETPT    GEN.U06                   0.4000",
+   "SETPT    GEN.U07                   0.4000",
+   "SETPT    GEN.U08                   0.4000",
+   "SETPT    GEN.U09                   0.4000",
+   "SETPT    GEN.U10                   0.4000",
+   "SETPT    GEN.U11                   0.4000",
+   "SETPT    GEN.U12                   0.4000",
+   "SETPT    GEN.U13                   0.4000",
+   "SETPT    GEN.U14                   0.4000",
+   "SETPT    GEN.U15                   0.4000",
+   "SETPT    GEN.U16                   0.4000",
+   "SETPT    GEN.U17                   0.4000",
+   "SETPT    GEN.U18                   0.4000",
+   "SETPT    GEN.U19                   0.4000",
+   "SETPT    GEN.U20                   0.4000",
+   "SETPT    GEN.U21                   0.4000",
+   "SETPT    GEN.U22                   0.4000",
+   "SETPT    GEN.U23                   0.4000",
+   "SETPT    GEN.U24                   0.4000",
+   "SETPT    GEN.U25                   0.4000",
+   "SETPT    GEN.U26                   0.4000",
+   "SETPT    GEN.U27                   0.4000",
+   "SETPT    GEN.U28                   0.4000",
+   "SETPT    GEN.U29                   0.4000",
+   "SETPT    GEN.U30                   0.4000",
+   "SETPT    GEN.U31                   0.4000",
+   "SETPT    GEN.U32                   0.4000",
+   "SETPT    GEN.U33                   0.4000",
+   "SETPT    GEN.U34                   0.4000",
+   "SETPT    GEN.U35                   0.4000",
+   "SETPT    GEN.U36                   0.4000",
+   "SETPT    GEN.U37                   0.4000",
+   "SETPT    GEN.U38                   0.4000",
+   "SETPT    GEN.U39                   0.4000",
+   "SETPT    GEN.U40                   0.4000",
+   "SETPT    GEN.U41                   0.4000",
+   "SETPT    GEN.U42                   0.4000",
+   "SETPT    GEN.U43                   0.4000",
+   "SETPT    GEN.U44                   0.4000",
+   "SETPT    GEN.U45                   0.4000",
+   "SETPT    GEN.U46                   0.4000",
+   "SETPT    GEN.U47                   0.4000",
+   "SETPT    GEN.U48                   0.4000",
+   "SETPT    GEN.U49                   0.4000",
+   "SETPT    GEN.U50                   0.4000",
+   "SETPT    GEN.U51                   0.4000",
+   "SETPT    GEN.U52                   0.4000",
+   "SETPT    GEN.U53                   0.4000",
+   "SETPT    GEN.U54                   0.4000",
+   "SETPT    GEN.U55                   0.4000",
+   "SETPT    GEN.U56                   0.4000",
+   "SETPT    GEN.U57                   0.4000",
+   "SETPT    GEN.U58                   0.4000",
+   "SETPT    GEN.U59                   0.4000",
+   "SETPT    GEN.U60                   0.4000",
+   "SETPT    GEN.U61                   0.4000",
+   "SETPT    GEN.U62                   0.4000",
+   "SETPT    GEN.U63                   0.4000"
+  ]
+ },
+ "unit_table_overflow": {
+  "exit_code": 3,
+  "stdout": [
+   "RTGENACE: savecase read failed, ierr= 2"
+  ]
+ },
+ "unknown_record_skipped": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE UNKNOWN_REC",
+   "ACE_MW       -30.0000",
+   "SETPT    GEN.HARBOR1               0.4000",
+   "SETPT    GEN.HARBOR2               0.4000",
+   "SETPT    GEN.MESQUITE_CT           1.2000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ },
+ "zero_participation": {
+  "exit_code": 0,
+  "stdout": [
+   "SAVECASE ZERO_PF",
+   "ACE_MW       -50.0000",
+   "SETPT    GEN.HARBOR1               0.0000",
+   "SETPT    GEN.HARBOR2               0.0000",
+   "SETPT    GEN.MESQUITE_CT           0.0000",
+   "SETPT    GEN.CEDAR_STM             0.0000"
+  ]
+ }
+}

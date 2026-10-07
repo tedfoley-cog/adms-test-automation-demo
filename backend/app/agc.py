@@ -40,6 +40,6 @@ def allocate_regulation(
         ramp_limit = unit.ramp_mw_per_min * (interval_s / 60.0)
         share = max(-ramp_limit, min(ramp_limit, share))
         target = unit.output_mw + share
-        target = max(unit.min_mw, min(unit.max_mw, target))
+        target = min(unit.max_mw, max(unit.min_mw, target))
         setpoints[unit.name] = round(target - unit.output_mw, 4)
     return setpoints

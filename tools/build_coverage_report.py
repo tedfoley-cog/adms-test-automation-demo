@@ -55,6 +55,12 @@ CATALOG: dict[str, dict[str, str]] = {
         "tier": "Tier 1",
         "team": "AEMS Applications",
     },
+    "app/rtgenace.py": {
+        "function": "RTGENACE port: savecase replay of reporting ACE and regulation",
+        "standard": "NERC BAL-001 / Habitat RTGENACE parity",
+        "tier": "Tier 1",
+        "team": "AEMS Applications",
+    },
     "app/state_estimator.py": {
         "function": "Measurement conditioning and bad-data detection",
         "standard": "IEC 61970 (CIM)",
@@ -95,8 +101,11 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def firmware_modules() -> list[dict[str, object]]:
-    run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
+    # Every test binary links all firmware sources, so gcov writes one record per
+    # (binary, source) pair; hit counts are summed per source line across binaries.
+    # Clean first so stale .gcda from an earlier build are never merged in.
+    run(["make", "clean", "coverage"], FIRMWARE)
+    hits: dict[str, dict[int, int]] = {}
     for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -104,12 +113,16 @@ def firmware_modules() -> list[dict[str, object]]:
             source = file_entry["file"]
             if not source.startswith("src/"):
                 continue
-            path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            lines = hits.setdefault(f"firmware/{source}", {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                lines[number] = lines.get(number, 0) + line.get("count", 0)
+
+    modules: list[dict[str, object]] = []
+    for path, lines in sorted(hits.items()):
+        uncovered = sorted(number for number, count in lines.items() if count == 0)
+        covered = len(lines) - len(uncovered)
+        modules.append(build_module(path, "firmware", "C", len(lines), covered, uncovered))
     return modules
 
 
@@ -180,7 +193,7 @@ def main() -> None:
     total_lines = sum(int(m["lines_total"]) for m in modules)
     covered_lines = sum(int(m["lines_covered"]) for m in modules)
     overall = round((covered_lines / total_lines) * 100, 1) if total_lines else 0.0
-    generated_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    generated_at = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
 
     report = {
         "generated_at": generated_at,

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Coverage drawer drill-down', () => {
-  test('opening the AGC module shows its standard, uncovered lines and queues generation once', async ({
+  test('opening the AGC module shows its standard, full coverage and queues generation once', async ({
     page,
   }) => {
     await page.goto('/');
@@ -13,8 +13,8 @@ test.describe('Coverage drawer drill-down', () => {
     await expect(page.getByTestId('drawer-title')).toHaveText('agc.py');
     await expect(page.getByTestId('drawer-standard')).toHaveText('NERC BAL-001');
     await expect(page.getByTestId('drawer-team')).toHaveText('AEMS Applications');
-    await expect(page.getByTestId('drawer-coverage')).toContainText('0.0% of');
-    await expect(page.getByTestId('drawer-uncovered')).not.toHaveText('none');
+    await expect(page.getByTestId('drawer-coverage')).toContainText('100.0% of');
+    await expect(page.getByTestId('drawer-uncovered')).toHaveText('none');
 
     await expect(page.getByTestId('kpi-backlog')).toHaveText('0');
     await page.getByTestId('drawer-queue').click();
@@ -27,14 +27,12 @@ test.describe('Coverage drawer drill-down', () => {
     await expect(page.getByTestId('kpi-backlog')).toHaveText('1');
   });
 
-  test('a module that meets its target still opens and reports no uncovered lines', async ({
-    page,
-  }) => {
+  test('a module below target lists the lines still to cover', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('filter-search').fill('models.py');
-    await page.getByTestId('row-models.py').click();
+    await page.getByTestId('filter-search').fill('state_estimator');
+    await page.getByTestId('row-state_estimator.py').click();
 
-    await expect(page.getByTestId('drawer-coverage')).toContainText('100.0% of');
-    await expect(page.getByTestId('drawer-uncovered')).toHaveText('none');
+    await expect(page.getByTestId('drawer-coverage')).toContainText('0.0% of');
+    await expect(page.getByTestId('drawer-uncovered')).not.toHaveText('none');
   });
 });
