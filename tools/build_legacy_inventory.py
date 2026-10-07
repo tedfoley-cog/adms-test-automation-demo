@@ -18,6 +18,8 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -110,7 +112,6 @@ def parse_report(lines: list[str]) -> tuple[float, list[tuple[str, float]]]:
 def compare(path: Path, legacy: dict[str, object]) -> dict[str, object]:
     """Replay one savecase through the port and judge it against the legacy output."""
     from app import rtgenace
-    from app.agc import allocate_regulation
     from app.savecase import load_savecase
 
     if legacy["exit_code"] != 0:
@@ -130,10 +131,9 @@ def compare(path: Path, legacy: dict[str, object]) -> dict[str, object]:
     if not roster_matches:
         setpoints_match = False
     elif indeterminate:
-        expected = allocate_regulation(case.units, legacy_ace, rtgenace.CONTROL_INTERVAL_S)
-        setpoints_match = [mw for _, mw in legacy_setpoints] == [
-            expected[unit.name] for unit in case.units
-        ]
+        setpoints_match = rtgenace.legacy_setpoints_consistent(
+            case, legacy_ace, [mw for _, mw in legacy_setpoints]
+        )
     else:
         setpoints_match = all(
             abs(ours - theirs) <= rtgenace.setpoint_parity_bound(case, i, result.ace_mw)
@@ -196,15 +196,23 @@ def corpus_parity() -> dict[str, object]:
     }
 
 
-def characterization_tests() -> list[str]:
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-m", "characterization"],
-        cwd=BACKEND,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return [line for line in proc.stdout.splitlines() if "::" in line]
+def characterization_tests() -> dict[str, bool]:
+    """Run every @characterization test; map test id -> passed (failures count against)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        report = Path(tmp) / "characterization.xml"
+        subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "-m", "characterization", f"--junitxml={report}"],
+            cwd=BACKEND,
+            stdout=subprocess.DEVNULL,
+            check=False,
+        )
+        cases = ET.parse(report).getroot().iter("testcase")
+        return {
+            f"{case.get('classname')}::{case.get('name')}": not any(
+                child.tag in ("failure", "error", "skipped") for child in case
+            )
+            for case in cases
+        }
 
 
 def coverage_by_module() -> dict[str, float]:
@@ -244,17 +252,26 @@ def main() -> None:
         "corpus": corpus,
     }
 
-    pinned = {
+    suites = {
         "RTGENACE": [t for t in tests if "rtgenace" in t],
         "HAB_SAVECASE": [t for t in tests if "rtgenace" in t and READER_TEST_RE.search(t)],
     }
+    # Only passing tests pin behaviour; any failing or skipped test blocks "verified".
+    pinned = {task: [t for t in ids if tests[t]] for task, ids in suites.items()}
+    all_pass = {task: len(pinned[task]) == len(ids) for task, ids in suites.items()}
     corpus_proven = corpus["matched"] == corpus["cases"] == corpus["goldens_reproduced"]
     tasks = []
     for task in TASKS:
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
         count = len(pinned.get(task["id"], []))
-        verified = bool(target) and count > 0 and corpus_proven and production["matches"]
+        verified = (
+            bool(target)
+            and count > 0
+            and all_pass.get(task["id"], False)
+            and corpus_proven
+            and production["matches"]
+        )
         tasks.append(
             {
                 **task,

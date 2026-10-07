@@ -66,7 +66,8 @@ class Savecase:
 
 def load_savecase(path: Path) -> Savecase:
     try:
-        text = path.read_text(encoding="utf-8")
+        # Byte-transparent like the Fortran reader: any byte in a comment is accepted.
+        text = path.read_text(encoding="latin-1")
     except OSError as exc:
         raise SavecaseError(IERR_OPEN, f"cannot open savecase export {path}: {exc}") from exc
 

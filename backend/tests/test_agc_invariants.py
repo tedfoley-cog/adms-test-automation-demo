@@ -14,6 +14,7 @@ from app.models import BalancingState, TieLine, Unit
 from app.savecase import load_savecase
 
 INVARIANT_CASES = 1000
+OUT_OF_LIMIT_CASES = 500
 PARITY_CASES = 500
 ROUNDING = 5e-5  # setpoints are rounded to 4 decimals
 
@@ -61,8 +62,11 @@ def test_regulation_never_overcorrects_or_violates_ramp_and_limits(seed: int) ->
     assert abs(sum(setpoints.values())) <= abs(ace) + len(units) * ROUNDING
 
 
-@pytest.mark.parametrize("seed", range(0, INVARIANT_CASES, 10))
+@pytest.mark.parametrize("seed", range(OUT_OF_LIMIT_CASES))
 def test_regulation_returns_out_of_limit_units_to_their_band(seed: int) -> None:
+    """Pinned legacy property for units that start outside their limits: the target is
+    clipped into the band, so the unit only ever moves towards its violated limit, even
+    against ACE and beyond its ramp capability (ALLOCR clips ramp before limits)."""
     rng = random.Random(seed)
     units = random_fleet(rng, in_limits=False)
     ace = rng.uniform(DEADBAND_MW + 0.1, 600.0) * rng.choice([-1, 1])
@@ -70,9 +74,14 @@ def test_regulation_returns_out_of_limit_units_to_their_band(seed: int) -> None:
     setpoints = allocate_regulation(units, ace)
 
     for unit in units:
-        if unit.on_agc and unit.participation > 0.0:
-            assert unit.min_mw - ROUNDING <= unit.output_mw + setpoints[unit.name]
-            assert unit.output_mw + setpoints[unit.name] <= unit.max_mw + ROUNDING
+        if not (unit.on_agc and unit.participation > 0.0) or unit.min_mw > unit.max_mw:
+            continue
+        delta = setpoints[unit.name]
+        assert unit.min_mw - ROUNDING <= unit.output_mw + delta <= unit.max_mw + ROUNDING
+        if unit.output_mw > unit.max_mw:
+            assert delta < 0.0, "a unit above its max must only move down"
+        elif unit.output_mw < unit.min_mw:
+            assert delta > 0.0, "a unit below its min must only move up"
 
 
 def test_no_regulation_when_participation_pool_is_empty() -> None:
@@ -160,8 +169,8 @@ def test_port_matches_live_legacy_binary_on_seeded_savecases(
             failures.append((index, "ace", modern.ace_mw, legacy.ace_mw))
             continue
         if rtgenace.deadband_indeterminate(case, modern.ace_mw):
-            expected = allocate_regulation(case.units, legacy.ace_mw)
-            if [mw for _, mw in legacy.setpoints] != [expected[u.name] for u in case.units]:
+            legacy_mws = [mw for _, mw in legacy.setpoints]
+            if not rtgenace.legacy_setpoints_consistent(case, legacy.ace_mw, legacy_mws):
                 failures.append((index, "deadband", modern.ace_mw, legacy.ace_mw))
             continue
         for unit, ((name, ours), (_, theirs)) in enumerate(

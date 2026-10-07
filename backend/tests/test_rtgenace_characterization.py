@@ -28,7 +28,6 @@ from rtgenace_corpus import (
 )
 
 from app import rtgenace
-from app.agc import allocate_regulation
 from app.savecase import load_savecase
 
 PRODUCTION_SAVECASE = LEGACY / "savecases" / "rtnet_ems_0742.export"
@@ -84,8 +83,9 @@ def test_port_reproduces_legacy_ace_and_setpoints(case: str) -> None:
     if rtgenace.deadband_indeterminate(savecase, modern.ace_mw):
         # Single precision alone can put ACE on either side of the deadband here, so
         # the deadband decision is checked from the legacy ACE rather than our own.
-        expected = allocate_regulation(savecase.units, legacy.ace_mw, rtgenace.CONTROL_INTERVAL_S)
-        assert [mw for _, mw in legacy.setpoints] == [expected[u.name] for u in savecase.units]
+        assert rtgenace.legacy_setpoints_consistent(
+            savecase, legacy.ace_mw, [mw for _, mw in legacy.setpoints]
+        )
         return
 
     for index, ((_, ours), (_, theirs)) in enumerate(

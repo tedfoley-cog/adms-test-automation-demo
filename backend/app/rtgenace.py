@@ -19,7 +19,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from .agc import DEADBAND_MW, allocate_regulation, reporting_ace
+from .agc import DEADBAND_MW, allocate_regulation_by_unit, reporting_ace
 from .savecase import Savecase, SavecaseError, load_savecase
 
 CONTROL_INTERVAL_S = 4.0
@@ -41,19 +41,46 @@ class RtgenaceResult:
 
 def run(case: Savecase) -> RtgenaceResult:
     ace = reporting_ace(case.balancing_state())
-    allocation = allocate_regulation(case.units, ace, CONTROL_INTERVAL_S)
+    # Per row, not per name: ALLOCR keeps one setpoint per unit record even if names repeat.
+    allocation = allocate_regulation_by_unit(case.units, ace, CONTROL_INTERVAL_S)
     return RtgenaceResult(
         savecase=case.name,
         ace_mw=ace,
-        setpoints=[(unit.name, allocation[unit.name]) for unit in case.units],
+        setpoints=[(unit.name, mw) for unit, mw in zip(case.units, allocation, strict=True)],
     )
+
+
+def _fortran_f(value: float, width: int = 12, decimals: int = 4) -> str:
+    """Fortran ``Fw.d`` edit descriptor: a value that does not fit prints as ``*`` x w."""
+    text = f"{value:{width}.{decimals}f}"
+    return "*" * width if len(text) > width else text
 
 
 def format_report(result: RtgenaceResult) -> list[str]:
     """Lines in the legacy layout: ``(A,A)``, ``(A,F12.4)``, ``(A,A20,F12.4)``."""
-    lines = [f"SAVECASE {result.savecase[:32]}", f"ACE_MW   {result.ace_mw:12.4f}"]
-    lines += [f"SETPT    {name[:20]:<20}{mw:12.4f}" for name, mw in result.setpoints]
+    lines = [f"SAVECASE {result.savecase[:32]}", f"ACE_MW   {_fortran_f(result.ace_mw)}"]
+    lines += [f"SETPT    {name[:20]:<20}{_fortran_f(mw)}" for name, mw in result.setpoints]
     return lines
+
+
+def legacy_setpoints_consistent(
+    case: Savecase, legacy_ace_mw: float, legacy_setpoints: list[float]
+) -> bool:
+    """Judge legacy setpoints for a savecase whose ACE is ``deadband_indeterminate``.
+
+    Single precision can put the Fortran on either side of the deadband, and the
+    printed ACE (4 decimals) can read exactly 5.0000 while the Fortran saw it outside.
+    So the legacy output is consistent if it is all zero (deadband taken) or matches
+    the allocation for the legacy ACE within the setpoint bound (deadband not taken)."""
+    if all(mw == 0.0 for mw in legacy_setpoints):
+        return True
+    expected = allocate_regulation_by_unit(
+        case.units, legacy_ace_mw, CONTROL_INTERVAL_S, deadband_mw=0.0
+    )
+    return len(expected) == len(legacy_setpoints) and all(
+        abs(ours - theirs) <= setpoint_parity_bound(case, index, legacy_ace_mw)
+        for index, (ours, theirs) in enumerate(zip(expected, legacy_setpoints, strict=True))
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

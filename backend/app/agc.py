@@ -20,26 +20,46 @@ def reporting_ace(state: BalancingState) -> float:
     return (actual_interchange - scheduled_interchange) - bias_term - state.meter_error_mw
 
 
-def allocate_regulation(
-    units: list[Unit], ace_mw: float, interval_s: float = 4.0
-) -> dict[str, float]:
-    """Distribute the correction across units on AGC by participation factor,
-    clipped by ramp capability over the control interval and unit limits."""
-    if abs(ace_mw) <= DEADBAND_MW:
-        return {unit.name: 0.0 for unit in units}
+def _regulated(unit: Unit) -> bool:
+    return unit.on_agc and unit.participation > 0.0
+
+
+def allocate_regulation_by_unit(
+    units: list[Unit], ace_mw: float, interval_s: float = 4.0, deadband_mw: float = DEADBAND_MW
+) -> list[float]:
+    """Setpoint change for each unit row, in order (one per row, as in legacy ALLOCR).
+
+    The correction is distributed across units on AGC by participation factor,
+    clipped by ramp capability over the control interval and then unit limits."""
+    setpoints = [0.0] * len(units)
+    if abs(ace_mw) <= deadband_mw:
+        return setpoints
 
     correction = -ace_mw
-    on_agc = [unit for unit in units if unit.on_agc and unit.participation > 0.0]
-    total_participation = sum(unit.participation for unit in on_agc)
+    total_participation = sum(unit.participation for unit in units if _regulated(unit))
     if total_participation <= 0.0:
-        return {unit.name: 0.0 for unit in units}
+        return setpoints
 
-    setpoints: dict[str, float] = {unit.name: 0.0 for unit in units}
-    for unit in on_agc:
+    for index, unit in enumerate(units):
+        if not _regulated(unit):
+            continue
         share = correction * (unit.participation / total_participation)
         ramp_limit = unit.ramp_mw_per_min * (interval_s / 60.0)
         share = max(-ramp_limit, min(ramp_limit, share))
         target = unit.output_mw + share
         target = min(unit.max_mw, max(unit.min_mw, target))
-        setpoints[unit.name] = round(target - unit.output_mw, 4)
+        setpoints[index] = round(target - unit.output_mw, 4)
+    return setpoints
+
+
+def allocate_regulation(
+    units: list[Unit], ace_mw: float, interval_s: float = 4.0
+) -> dict[str, float]:
+    """``allocate_regulation_by_unit`` keyed by unit name (names must be unique)."""
+    setpoints: dict[str, float] = {unit.name: 0.0 for unit in units}
+    for unit, delta in zip(
+        units, allocate_regulation_by_unit(units, ace_mw, interval_s), strict=True
+    ):
+        if _regulated(unit):
+            setpoints[unit.name] = delta
     return setpoints

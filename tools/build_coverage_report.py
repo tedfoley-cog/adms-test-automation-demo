@@ -118,6 +118,11 @@ def firmware_modules() -> list[dict[str, object]]:
                 number = line["line_number"]
                 lines[number] = lines.get(number, 0) + line.get("count", 0)
 
+    # make coverage tolerates gcov failures; never publish a partial firmware module list.
+    missing = sorted(p for p in CATALOG if p.startswith("firmware/") and p not in hits)
+    if missing:
+        raise SystemExit(f"no gcov data for {', '.join(missing)}: refusing to publish")
+
     modules: list[dict[str, object]] = []
     for path, lines in sorted(hits.items()):
         uncovered = sorted(number for number, count in lines.items() if count == 0)
