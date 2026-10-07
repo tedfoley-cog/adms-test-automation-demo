@@ -224,6 +224,10 @@ h3 {
   font-size: 0.8rem;
 }
 
+.grid td .mono {
+  overflow-wrap: anywhere;
+}
+
 .grid td > .subtle {
   display: block;
   margin-top: 0.2rem;
