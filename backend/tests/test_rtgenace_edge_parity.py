@@ -131,3 +131,35 @@ def test_knife_edge_legacy_ace_printed_as_deadband_value_is_still_consistent() -
     assert rtgenace.legacy_setpoints_consistent(case, 5.0, [-5.0])
     assert rtgenace.legacy_setpoints_consistent(case, 5.0, [0.0])
     assert not rtgenace.legacy_setpoints_consistent(case, 5.0, [-4.0])
+
+
+def test_knife_edge_legacy_ace_off_the_edge_fixes_the_deadband_decision() -> None:
+    unit = Unit(
+        name="G",
+        output_mw=100.0,
+        min_mw=0.0,
+        max_mw=200.0,
+        ramp_mw_per_min=600.0,
+        participation=1.0,
+    )
+    case = Savecase(name="EDGE", units=[unit])
+    assert rtgenace.legacy_setpoints_consistent(case, 5.0001, [-5.0001])
+    assert not rtgenace.legacy_setpoints_consistent(case, 5.0001, [0.0])
+    assert rtgenace.legacy_setpoints_consistent(case, -4.9999, [0.0])
+    assert not rtgenace.legacy_setpoints_consistent(case, -4.9999, [4.9999])
+
+
+NEL_COMMENT = b"* note\x85RECORD METERR\x85  AREA.CEDARVALLEY   999.00\n"
+
+
+def test_nel_byte_in_a_comment_does_not_start_a_record(tmp_path: Path) -> None:
+    source = case_path("clamp_at_max")
+    path = tmp_path / "nel_comment.export"
+    path.write_bytes(NEL_COMMENT + source.read_bytes())
+    assert rtgenace.run(load_savecase(path)) == rtgenace.run(load_savecase(source))
+
+
+def test_nel_byte_in_a_comment_matches_legacy(legacy_binary: Path, tmp_path: Path) -> None:
+    path = tmp_path / "nel_comment.export"
+    path.write_bytes(NEL_COMMENT + case_path("clamp_at_max").read_bytes())
+    assert run_binary(legacy_binary, str(path)) == GOLDEN["clamp_at_max"]

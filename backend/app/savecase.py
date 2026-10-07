@@ -73,7 +73,8 @@ def load_savecase(path: Path) -> Savecase:
 
     case = Savecase()
     record = ""
-    for number, raw in enumerate(text.splitlines(), start=1):
+    # Split on LF only: the Fortran reader does not treat NEL (0x85), FF or VT as breaks.
+    for number, raw in enumerate(text.split("\n"), start=1):
         if raw.startswith("END"):
             break
         line = raw.strip()

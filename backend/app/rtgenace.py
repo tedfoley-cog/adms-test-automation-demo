@@ -68,19 +68,24 @@ def legacy_setpoints_consistent(
 ) -> bool:
     """Judge legacy setpoints for a savecase whose ACE is ``deadband_indeterminate``.
 
-    Single precision can put the Fortran on either side of the deadband, and the
-    printed ACE (4 decimals) can read exactly 5.0000 while the Fortran saw it outside.
-    So the legacy output is consistent if it is all zero (deadband taken) or matches
-    the allocation for the legacy ACE within the setpoint bound (deadband not taken)."""
-    if all(mw == 0.0 for mw in legacy_setpoints):
-        return True
+    The printed legacy ACE is the Fortran's own value rounded to 4 decimals, so it
+    fixes which side of the deadband the Fortran was on, except when it prints exactly
+    5.0000: then the deadband may or may not have been taken. Outside the deadband the
+    setpoints must match the allocation for the legacy ACE within the setpoint bound;
+    inside it they must all be zero; at 5.0000 either is consistent."""
+    deadband_taken = all(mw == 0.0 for mw in legacy_setpoints)
     expected = allocate_regulation_by_unit(
         case.units, legacy_ace_mw, CONTROL_INTERVAL_S, deadband_mw=0.0
     )
-    return len(expected) == len(legacy_setpoints) and all(
+    regulated = len(expected) == len(legacy_setpoints) and all(
         abs(ours - theirs) <= setpoint_parity_bound(case, index, legacy_ace_mw)
         for index, (ours, theirs) in enumerate(zip(expected, legacy_setpoints, strict=True))
     )
+    if abs(abs(legacy_ace_mw) - DEADBAND_MW) < PRINT_RESOLUTION_MW / 2:
+        return deadband_taken or regulated
+    if abs(legacy_ace_mw) > DEADBAND_MW:
+        return regulated
+    return deadband_taken
 
 
 def main(argv: list[str] | None = None) -> int:
