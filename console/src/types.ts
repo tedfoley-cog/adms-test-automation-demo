@@ -82,3 +82,57 @@ export interface BacklogItem {
   justification: string;
   createdAt: string;
 }
+
+export interface RealtimeTask {
+  task: string;
+  rate_hz: number;
+  budget_cycles: number;
+  max_cycles: number;
+  mean_cycles: number;
+  max_us: number;
+  headroom_pct: number;
+  worst_scenario: string;
+  status: 'within budget' | 'over budget';
+}
+
+export interface RealtimeScenario {
+  name: string;
+  description: string;
+  expected: string[];
+  observed: string[];
+  bus_trip: boolean;
+  trip_ms: number | null;
+  util_pct: number;
+  pass: boolean;
+}
+
+export interface ComplianceTest {
+  id: string;
+  test: string;
+  clause: string;
+  limit: string;
+  automated: boolean;
+  status: 'pass' | 'fail' | 'not automated';
+  points: number;
+  worst_tve_pct: number | null;
+}
+
+export interface RealtimeReport {
+  generated_at: string;
+  label: string;
+  target: {
+    mcu: string;
+    core: string;
+    cpu_hz: number;
+    emulator: string;
+    resolution_cycles: number;
+    flash_bytes: number;
+    ram_bytes: number;
+    method: string;
+  };
+  rates: { sample_hz: number; protection_hz: number; pmu_hz: number; comms_hz: number };
+  worst_util_pct: number;
+  tasks: RealtimeTask[];
+  scenarios: RealtimeScenario[];
+  compliance: ComplianceTest[];
+}

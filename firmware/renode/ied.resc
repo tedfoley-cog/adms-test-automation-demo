@@ -1,0 +1,22 @@
+# Boot the feeder IED image on an emulated STM32F407.
+#
+#   renode --disable-xwt --console -e '$elf=@firmware/target/stm32f407/build/ied.elf; \
+#       $uart=@/tmp/ied_uart.log; include @firmware/renode/ied.resc; start'
+#
+# tools/run_renode.py drives this script per scenario and writes the harness
+# block (scenario index, uptime preset, frequency override) into .noinit RAM
+# before starting the core. It runs the warm-up preroll with the default
+# time quantum, then switches to a 1 us quantum (168 cycles) for the scenario
+# so DWT->CYCCNT readings resolve individual task executions.
+
+:name: Feeder IED (STM32F407)
+
+$elf?=@firmware/target/stm32f407/build/ied.elf
+$uart?=@/tmp/ied_uart.log
+$repl?=@firmware/renode/ied_stm32f407.repl
+
+mach create "ied"
+machine LoadPlatformDescription $repl
+sysbus.cpu PerformanceInMips 168
+sysbus.usart2 CreateFileBackend $uart true
+sysbus LoadELF $elf

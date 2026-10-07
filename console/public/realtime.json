@@ -1,0 +1,223 @@
+{
+  "generated_at": "2026-10-07T21:53:41+00:00",
+  "label": "baseline",
+  "target": {
+    "mcu": "STM32F407VG",
+    "core": "Cortex-M4F",
+    "cpu_hz": 168000000,
+    "emulator": "Renode 1.15.3",
+    "resolution_cycles": 168,
+    "flash_bytes": 37484,
+    "ram_bytes": 9860,
+    "method": "DWT cycle counter on the emulated core; instruction-accurate at 168 MIPS, no pipeline or flash wait-state model"
+  },
+  "rates": {
+    "sample_hz": 1920,
+    "protection_hz": 480,
+    "pmu_hz": 60,
+    "comms_hz": 120
+  },
+  "worst_util_pct": 3.72,
+  "tasks": [
+    {
+      "task": "acq_isr",
+      "rate_hz": 1920,
+      "budget_cycles": 2000,
+      "max_cycles": 168,
+      "mean_cycles": 81,
+      "max_us": 1.0,
+      "headroom_pct": 91.6,
+      "worst_scenario": "steady_load",
+      "status": "within budget"
+    },
+    {
+      "task": "protection",
+      "rate_hz": 480,
+      "budget_cycles": 12000,
+      "max_cycles": 6279,
+      "mean_cycles": 5911,
+      "max_us": 37.4,
+      "headroom_pct": 47.7,
+      "worst_scenario": "breaker_failure",
+      "status": "within budget"
+    },
+    {
+      "task": "pmu",
+      "rate_hz": 60,
+      "budget_cycles": 30000,
+      "max_cycles": 16695,
+      "mean_cycles": 16598,
+      "max_us": 99.4,
+      "headroom_pct": 44.4,
+      "worst_scenario": "steady_load",
+      "status": "within budget"
+    },
+    {
+      "task": "comms",
+      "rate_hz": 120,
+      "budget_cycles": 40000,
+      "max_cycles": 15960,
+      "mean_cycles": 4683,
+      "max_us": 95.0,
+      "headroom_pct": 60.1,
+      "worst_scenario": "fault_ag_zone1",
+      "status": "within budget"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "steady_load",
+      "description": "Balanced 320 A load, 0.95 pf, 60 Hz",
+      "expected": [
+        "no trip"
+      ],
+      "observed": [
+        "no trip"
+      ],
+      "bus_trip": false,
+      "trip_ms": null,
+      "util_pct": 3.15,
+      "pass": true
+    },
+    {
+      "name": "fault_ag_zone1",
+      "description": "A-G fault at 40% of the line, 0.5 ohm",
+      "expected": [
+        "21Z1"
+      ],
+      "observed": [
+        "21Z1"
+      ],
+      "bus_trip": false,
+      "trip_ms": 14.1,
+      "util_pct": 3.7,
+      "pass": true
+    },
+    {
+      "name": "fault_bc_zone2",
+      "description": "B-C fault at 110% of the line (adjacent section)",
+      "expected": [
+        "21Z2"
+      ],
+      "observed": [
+        "21Z2"
+      ],
+      "bus_trip": false,
+      "trip_ms": 316.1,
+      "util_pct": 3.66,
+      "pass": true
+    },
+    {
+      "name": "fault_ag_high_resistance",
+      "description": "A-G fault through 10 ohm at 50%",
+      "expected": [
+        "51G"
+      ],
+      "observed": [
+        "51G"
+      ],
+      "bus_trip": false,
+      "trip_ms": 1372.4,
+      "util_pct": 3.63,
+      "pass": true
+    },
+    {
+      "name": "breaker_failure",
+      "description": "A-G zone 1 fault, feeder breaker stuck closed",
+      "expected": [
+        "21Z1",
+        "50BF-86B"
+      ],
+      "observed": [
+        "21Z1",
+        "50BF-86B"
+      ],
+      "bus_trip": true,
+      "trip_ms": 14.1,
+      "util_pct": 3.72,
+      "pass": true
+    }
+  ],
+  "compliance": [
+    {
+      "id": "ss-magnitude",
+      "test": "Steady-state magnitude, 10-120% Vnom",
+      "clause": "5.5.5 Table 3",
+      "limit": "TVE <= 1%",
+      "automated": true,
+      "status": "pass",
+      "points": 5,
+      "worst_tve_pct": 0.0041
+    },
+    {
+      "id": "ss-phase",
+      "test": "Steady-state phase angle, +/-180 deg",
+      "clause": "5.5.5 Table 3",
+      "limit": "TVE <= 1%",
+      "automated": true,
+      "status": "pass",
+      "points": 12,
+      "worst_tve_pct": 0.0001
+    },
+    {
+      "id": "ss-frequency",
+      "test": "Steady-state frequency range, fnom +/-2 Hz",
+      "clause": "5.5.5 Table 3",
+      "limit": "TVE <= 1%, FE <= 5 mHz, RFE <= 0.4 Hz/s",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    },
+    {
+      "id": "harmonics",
+      "test": "Harmonic distortion, 1% each to 50th",
+      "clause": "5.5.5 Table 3",
+      "limit": "TVE <= 1%, FE <= 5 mHz",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    },
+    {
+      "id": "freq-ramp",
+      "test": "Frequency ramp, +/-1 Hz/s",
+      "clause": "5.5.8 Table 7",
+      "limit": "TVE <= 1%, FE <= 10 mHz, RFE <= 0.4 Hz/s",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    },
+    {
+      "id": "modulation",
+      "test": "Amplitude and phase modulation bandwidth, 2 Hz",
+      "clause": "5.5.6 Table 5",
+      "limit": "TVE <= 3%, FE <= 60 mHz",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    },
+    {
+      "id": "step",
+      "test": "Magnitude and phase step response",
+      "clause": "5.5.9 Table 8",
+      "limit": "Response <= 2/fnom, overshoot <= 5%",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    },
+    {
+      "id": "latency",
+      "test": "Reporting latency",
+      "clause": "5.5.10",
+      "limit": "<= 2/Fs (33.3 ms)",
+      "automated": false,
+      "status": "not automated",
+      "points": 0,
+      "worst_tve_pct": null
+    }
+  ]
+}

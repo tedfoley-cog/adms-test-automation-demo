@@ -13,25 +13,38 @@ test.describe('Coverage view: search, filter and sort over the real report', () 
     await page.getByTestId('filter-tier').selectOption('Tier 1');
     await page.getByTestId('filter-below').check();
 
-    await expect(page.getByTestId('result-count')).toHaveText('2 of 11 modules');
+    await expect(page.getByTestId('result-count')).toHaveText('9 of 26 modules');
     const names = await page.locator('tbody tr.row td:first-child .mono').allTextContents();
-    expect(names.sort()).toEqual(['fault_detect.c', 'recloser.c']);
+    expect(names.sort()).toEqual([
+      'breaker_failure.c',
+      'distance.c',
+      'fault_detect.c',
+      'freq_element.c',
+      'ied_app.c',
+      'oc_element.c',
+      'recloser.c',
+      'timebase.c',
+      'trip_matrix.c',
+    ]);
     await expect(page.getByTestId('coverage-recloser.c')).toContainText('0.0%');
     await expect(page.getByTestId('coverage-fault_detect.c')).toContainText('41.9%');
   });
 
-  test('searching by governing standard finds the protection module, not the DNP3 one', async ({
+  test('searching by governing standard finds the overcurrent modules, not the DNP3 one', async ({
     page,
   }) => {
-    await page.getByTestId('filter-search').fill('IEC 60255');
-    await expect(page.getByTestId('result-count')).toHaveText('1 of 11 modules');
+    await page.getByTestId('filter-search').fill('IEC 60255-151');
+    await expect(page.getByTestId('result-count')).toHaveText('2 of 26 modules');
     await expect(page.getByTestId('row-fault_detect.c')).toContainText(
       'Feeder overcurrent protection (50/51)',
+    );
+    await expect(page.getByTestId('row-oc_element.c')).toContainText(
+      'Phasor overcurrent elements (50/51, IEC + IEEE curves)',
     );
     await expect(page.getByTestId('row-dnp3_outstation.c')).toHaveCount(0);
 
     await page.getByTestId('filter-search').fill('savecase');
-    await expect(page.getByTestId('result-count')).toHaveText('1 of 11 modules');
+    await expect(page.getByTestId('result-count')).toHaveText('1 of 26 modules');
     await expect(page.getByTestId('row-savecase.py')).toContainText(
       'Legacy HDB savecase ingest for migration parity',
     );
@@ -56,11 +69,11 @@ test.describe('Coverage view: search, filter and sort over the real report', () 
   test('a search with no domain match shows the empty state and clears back to all modules', async ({
     page,
   }) => {
-    await page.getByTestId('filter-search').fill('synchrophasor');
+    await page.getByTestId('filter-search').fill('turbine governor');
     await expect(page.getByTestId('no-results')).toHaveText('No modules match the current filters.');
-    await expect(page.getByTestId('result-count')).toHaveText('0 of 11 modules');
+    await expect(page.getByTestId('result-count')).toHaveText('0 of 26 modules');
 
     await page.getByTestId('filter-search').fill('');
-    await expect(page.getByTestId('result-count')).toHaveText('11 of 11 modules');
+    await expect(page.getByTestId('result-count')).toHaveText('26 of 26 modules');
   });
 });

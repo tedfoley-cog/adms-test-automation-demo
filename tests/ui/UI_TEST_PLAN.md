@@ -18,7 +18,10 @@ of the demo.
 | 8 | `backlog-form.spec.ts` | Empty submit → three field errors | Form validation is real, not decorative |
 | 9 | `backlog-form.spec.ts` | Target below the module's current coverage → rejected with the actual 68.7% value | Validation is computed against live report data |
 | 10 | `backlog-form.spec.ts` | Valid submit → confirmation, queue entry with technique/tier/target, then removal | The queue round-trips |
-| 11 | `golden-path.spec.ts` | Baseline KPIs → filter to Tier 1 backend gaps → drawer queue → legacy task that maps to the same module → run history → second item via the form → back to coverage | The full triage journey a QA lead would run, chaining state across all four views |
+| 11 | `golden-path.spec.ts` | Baseline KPIs → filter to Tier 1 backend gaps → drawer queue → legacy task that maps to the same module → run history → second item via the form → back to coverage | The full triage journey a QA lead would run, chaining state across the four QA views |
+| 12 | `realtime.spec.ts` | Real-time tab: every task's worst-case DWT cycles vs budget, the protection and PMU budgets, the Renode resolution/method caveat | Timing evidence comes from the emulated STM32F407 run and is labelled as instruction-accurate, not silicon |
+| 13 | `realtime.spec.ts` | Closed-loop scenarios: zone 1 trips in 14.1 ms, zone 2, 51G and 50BF-86B operate as expected, steady load does not trip | Protection behaviour is measured on the target image, not asserted from mock rows |
+| 14 | `realtime.spec.ts` | C37.118.1 matrix: magnitude and phase pass, frequency range and ramp are "not automated", 6 of 8 summary | The console states compliance gaps honestly |
 
 ## Running
 
