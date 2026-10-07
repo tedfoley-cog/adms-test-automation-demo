@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from . import __version__, agc, flisr, state_estimator
+from . import __version__, ace_client, flisr, state_estimator
 from .models import BalancingState, Feeder, Measurement, RestorationPlan, Unit
 from .network import get_feeder, load_network
 
@@ -64,8 +64,10 @@ def run_estimator(request: EstimationRequest) -> dict[str, object]:
 
 @router.post("/agc/dispatch")
 def agc_dispatch(request: AgcRequest) -> dict[str, object]:
-    ace = agc.reporting_ace(request.balancing_state)
-    return {"ace_mw": ace, "setpoint_deltas_mw": agc.allocate_regulation(request.units, ace)}
+    try:
+        return ace_client.dispatch(request.balancing_state, request.units)
+    except ace_client.AceServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 def create_app() -> FastAPI:

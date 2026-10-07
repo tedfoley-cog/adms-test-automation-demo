@@ -1,8 +1,8 @@
-"""Inventory the legacy HDB batch tasks and check them against the ported services.
+"""Inventory the legacy HDB batch tasks and check them against the services that replace them.
 
-Builds the legacy Fortran tasks, replays a savecase export through them, runs the
-same savecase through whatever modern service claims to replace them, and writes
-console/public/modernization.json for the QA console's Modernization view.
+Builds the legacy Fortran tasks, runs the characterization suites that pin them, replays the
+reference savecase and a seeded random sweep through legacy RTGENACE and the external
+ace-service, and writes console/public/modernization.json for the QA console.
 
 Usage:
     python tools/build_legacy_inventory.py
@@ -14,13 +14,16 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 LEGACY = REPO / "legacy" / "habitat"
-BACKEND = REPO / "backend"
+ACE_SERVICE = REPO / "services" / "ace-service"
 PUBLIC = REPO / "console" / "public"
 SAVECASE = LEGACY / "savecases" / "rtnet_ems_0742.export"
+SWEEP_CASES = 500
+SWEEP_SEED = 742
 
 UNIT_RE = re.compile(r"^\s*(PROGRAM|SUBROUTINE|FUNCTION|MODULE)\s+([A-Z_0-9]+)", re.IGNORECASE)
 
@@ -31,8 +34,11 @@ TASKS = [
         "function": "Reporting ACE and regulation allocation",
         "standard": "NERC BAL-001",
         "cycle": "4 s",
-        "target_module": "app/agc.py",
-        "port_status": "ported, unverified",
+        "target_module": "services/ace-service/ace_service/ace.py",
+        "port_status": "extracted to service, verified",
+        "spec": "docs/specs/RTGENACE.md",
+        "deployment": "services/ace-service — POST /v1/rtgenace/dispatch via ACE_SERVICE_URL",
+        "characterization_suite": "test_characterization_rtgenace.py",
     },
     {
         "id": "LOADSHED",
@@ -42,6 +48,9 @@ TASKS = [
         "cycle": "2 s",
         "target_module": None,
         "port_status": "not started",
+        "spec": None,
+        "deployment": None,
+        "characterization_suite": None,
     },
     {
         "id": "HAB_SAVECASE",
@@ -51,6 +60,9 @@ TASKS = [
         "cycle": "library",
         "target_module": "app/savecase.py",
         "port_status": "ported, unverified",
+        "spec": "docs/specs/RTGENACE.md §2.1",
+        "deployment": None,
+        "characterization_suite": "test_characterization_hab_savecase.py",
     },
 ]
 
@@ -70,34 +82,70 @@ def source_stats(path: Path) -> dict[str, object]:
     return {"source_lines": len(lines), "executable_lines": executable, "program_units": units}
 
 
-def legacy_ace() -> dict[str, float]:
-    subprocess.run(["make", "--silent", "all"], cwd=LEGACY, check=True)
-    output = subprocess.run(
-        [str(LEGACY / "build" / "rtgenace"), str(SAVECASE)],
+def characterization_counts() -> Counter[str]:
+    """Run the characterization suites (they must pass) and count tests per suite file."""
+    pytest = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-m"]
+    subprocess.run([*pytest, "characterization"], cwd=ACE_SERVICE, check=True, capture_output=True)
+    listing = subprocess.run(
+        [*pytest, "characterization", "--collect-only"],
+        cwd=ACE_SERVICE,
         check=True,
         capture_output=True,
         text=True,
     ).stdout
-    result: dict[str, float] = {}
-    for line in output.splitlines():
-        fields = line.split()
-        if fields[0] == "ACE_MW":
-            result["ACE_MW"] = float(fields[1])
-        elif fields[0] == "SETPT":
-            result[fields[1]] = float(fields[2])
-    return result
+    return Counter(
+        Path(line.split("::", 1)[0]).name for line in listing.splitlines() if "::" in line
+    )
 
 
-def modern_ace() -> dict[str, float]:
-    sys.path.insert(0, str(BACKEND))
-    from app.agc import allocate_regulation, reporting_ace
-    from app.savecase import load_savecase
+def harness():
+    sys.path[:0] = [str(ACE_SERVICE), str(ACE_SERVICE / "tests")]
+    import legacy_harness
 
-    case = load_savecase(SAVECASE)
-    ace = reporting_ace(case.balancing_state())
-    result = {"ACE_MW": ace}
-    result.update(allocate_regulation(case.units, ace))
-    return result
+    return legacy_harness
+
+
+def parity_report() -> dict[str, object]:
+    h = harness()
+    from ace_service.ace import dispatch
+
+    text = SAVECASE.read_text(encoding="utf-8")
+    outcome = h.compare(text)
+    area = h.area_from_text(text)
+    service = dispatch(area)
+    legacy = outcome.legacy
+
+    deltas = [abs(service.ace_mw - legacy.ace)] + [
+        abs(s.setpoint_delta_mw - mw)
+        for s, (_, mw) in zip(service.setpoints, legacy.setpoints, strict=True)
+    ]
+    summary = h.sweep(SWEEP_CASES, SWEEP_SEED)
+    return {
+        "savecase": SAVECASE.name,
+        "service": "services/ace-service",
+        "legacy_ace_mw": round(legacy.ace, 4),
+        "modern_ace_mw": round(service.ace_mw, 4),
+        "max_abs_delta_mw": round(max(deltas), 4),
+        "tolerance_mw": round(h.ace_bound(area), 4),
+        "logic_delta_mw": round(outcome.ace_logic_delta, 4),
+        "matches": not outcome.failures,
+        "setpoints": [
+            {"unit": unit, "legacy_mw": round(mw, 4), "modern_mw": round(s.setpoint_delta_mw, 4)}
+            for (unit, mw), s in zip(legacy.setpoints, service.setpoints, strict=True)
+        ],
+        "sweep": {
+            "cases": summary.cases,
+            "seed": summary.seed,
+            "failures": len(summary.failures),
+            "deadband_ambiguous": summary.deadband_ambiguous,
+            "max_ace_delta_mw": round(summary.max_ace_engineering_delta, 4),
+            "max_setpoint_delta_mw": round(summary.max_setpoint_engineering_delta, 4),
+            "max_logic_delta_mw": round(
+                max(summary.max_ace_logic_delta, summary.max_setpoint_logic_delta), 4
+            ),
+            "categories": summary.categories,
+        },
+    }
 
 
 def coverage_by_module() -> dict[str, float]:
@@ -109,39 +157,31 @@ def coverage_by_module() -> dict[str, float]:
 
 
 def main() -> None:
-    legacy = legacy_ace()
-    modern = modern_ace()
+    subprocess.run(["make", "--silent", "all"], cwd=LEGACY, check=True)
+    counts = characterization_counts()
+    parity = parity_report()
     coverage = coverage_by_module()
 
-    max_delta = max(abs(legacy[key] - modern.get(key, 0.0)) for key in legacy)
-    parity = {
-        "savecase": SAVECASE.name,
-        "legacy_ace_mw": round(legacy["ACE_MW"], 4),
-        "modern_ace_mw": round(modern["ACE_MW"], 4),
-        "max_abs_delta_mw": round(max_delta, 4),
-        "matches": max_delta < 0.01,
-        "setpoints": [
-            {
-                "unit": key,
-                "legacy_mw": round(legacy[key], 4),
-                "modern_mw": round(modern.get(key, 0.0), 4),
-            }
-            for key in legacy
-            if key != "ACE_MW"
-        ],
-    }
-
     tasks = []
-    for task in TASKS:
+    failed: list[str] = []
+    for template in TASKS:
+        task = dict(template)
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
+        suite = task.pop("characterization_suite")
+        pinned = counts.get(suite, 0) if suite else 0
+        if task["port_status"] == "extracted to service, verified" and not (
+            pinned and parity["matches"] and parity["sweep"]["failures"] == 0
+        ):
+            task["port_status"] = "ported, unverified"
+            failed.append(task["id"])
         tasks.append(
             {
                 **task,
                 **stats,
                 "target_coverage_pct": coverage.get(target) if target else None,
-                "characterization_tests": 0,
-                "parity_checked": bool(target) and task["id"] == "RTGENACE",
+                "characterization_tests": pinned,
+                "parity_checked": task["id"] == "RTGENACE",
             }
         )
 
@@ -152,11 +192,16 @@ def main() -> None:
         "parity": parity,
     }
     PUBLIC.mkdir(parents=True, exist_ok=True)
-    (PUBLIC / "modernization.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    out = PUBLIC / "modernization.json"
+    out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    sweep = parity["sweep"]
     print(
-        f"legacy tasks: {len(tasks)}, ACE parity delta: {parity['max_abs_delta_mw']} MW, "
-        f"characterization tests: 0"
+        f"legacy tasks: {len(tasks)}, ACE parity delta: {parity['max_abs_delta_mw']} MW "
+        f"(tolerance {parity['tolerance_mw']} MW), seeded parity: {sweep['cases']} cases / "
+        f"{sweep['failures']} failures, characterization tests: {sum(counts.values())}"
     )
+    if failed:
+        sys.exit(f"parity evidence failed for {', '.join(failed)}; reported as unverified")
 
 
 if __name__ == "__main__":

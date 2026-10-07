@@ -9,6 +9,7 @@ __pycache__/
 *.pyc
 .coverage
 backend/coverage.json
+services/ace-service/coverage.json
 tsconfig.tsbuildinfo
 legacy/habitat/build/
 firmware/build/

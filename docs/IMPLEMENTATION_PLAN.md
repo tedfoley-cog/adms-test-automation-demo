@@ -58,11 +58,18 @@ backend/                      ADMS/AEMS services (Python)
   app/network.py              Topology processing and connectivity trace
   app/flisr.py                Fault location, isolation, service restoration
   app/state_estimator.py      Measurement conditioning and bad-data detection
-  app/agc.py                  Reporting ACE and regulation allocation
+  app/ace_client.py           AGC dispatch client for the external ACE service (fail-safe 503)
+  app/config.py               Runtime configuration (ACE_SERVICE_URL, ACE_SERVICE_TIMEOUT_S)
   app/savecase.py             Modern reader for the legacy HDB savecase export
   app/api.py                  Control-room HTTP surface
   data/feeder_model.json      Two realistic distribution feeders
   tests/test_flisr.py         The only backend tests that exist on day zero
+
+services/ace-service/         RTGENACE extracted as an external FastAPI service
+  ace_service/ace.py          Reporting ACE and regulation allocation (spec: docs/specs/RTGENACE.md)
+  ace_service/hdb_export.py   HDB savecase export reader with HAB_SAVECASE semantics
+  tests/                      Fortran characterization, savecase + 500-case seeded parity, invariants
+  Dockerfile                  Non-root container on :8081
 
 legacy/habitat/               Legacy control-center application (Habitat-style)
   schema/scadamom.dbef        Representative HDB database definition

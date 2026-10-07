@@ -30,5 +30,13 @@
     "modules_below_target": 9,
     "lines_total": 615,
     "lines_covered": 219
+  },
+  {
+    "label": "RTGENACE extracted to ace-service + Tier 1 coverage lift",
+    "generated_at": "2026-10-07T20:28:41+00:00",
+    "overall_pct": 85.5,
+    "modules_below_target": 2,
+    "lines_total": 915,
+    "lines_covered": 782
   }
 ]

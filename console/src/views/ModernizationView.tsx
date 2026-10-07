@@ -2,6 +2,12 @@ import { useState } from 'react';
 
 import type { LegacyTask, ModernizationReport } from '../types';
 
+const STATUS_CLASS: Record<LegacyTask['port_status'], string> = {
+  'extracted to service, verified': 'pill pill-good',
+  'ported, unverified': 'pill',
+  'not started': 'pill pill-bad',
+};
+
 interface Props {
   modernization: ModernizationReport;
 }
@@ -9,6 +15,18 @@ interface Props {
 export default function ModernizationView({ modernization }: Props) {
   const [selected, setSelected] = useState<LegacyTask | null>(null);
   const { parity } = modernization;
+  const parityTask = modernization.tasks.find((task) => task.parity_checked);
+  const pinned = parityTask ? parityTask.characterization_tests : 0;
+
+  const readiness = (task: LegacyTask) => {
+    if (task.characterization_tests === 0) {
+      return 'Blocked: no behaviour is pinned before the rewrite';
+    }
+    if (task.port_status === 'extracted to service, verified') {
+      return `Verified: ${task.characterization_tests} pinned behaviours, parity on ${parity.savecase} and ${parity.sweep.cases} seeded savecases (${parity.sweep.failures} failures)`;
+    }
+    return 'Ready for rewrite: legacy behaviour is pinned';
+  };
 
   return (
     <section className="panel">
@@ -64,7 +82,7 @@ export default function ModernizationView({ modernization }: Props) {
               </td>
               <td>
                 <span
-                  className={task.port_status === 'not started' ? 'pill pill-bad' : 'pill'}
+                  className={STATUS_CLASS[task.port_status]}
                   data-testid={`legacy-status-${task.id}`}
                 >
                   {task.port_status}
@@ -75,7 +93,12 @@ export default function ModernizationView({ modernization }: Props) {
         </tbody>
       </table>
 
-      <h3>Savecase replay parity — {parity.savecase}</h3>
+      <h3>
+        Savecase replay parity — {parity.savecase}{' '}
+        <span className="subtle" data-testid="parity-service">
+          legacy Fortran vs {parity.service}
+        </span>
+      </h3>
       <table className="grid" data-testid="parity-table">
         <thead>
           <tr>
@@ -105,9 +128,53 @@ export default function ModernizationView({ modernization }: Props) {
         </tbody>
       </table>
       <p className="subtle" data-testid="parity-summary">
-        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay. No
-        characterization tests exist yet, so parity is a single spot check rather than evidence.
+        Max absolute delta {parity.max_abs_delta_mw.toFixed(4)} MW across the replay
+        {pinned === 0
+          ? '. No characterization tests exist yet, so parity is a single spot check rather than evidence.'
+          : `, within the ${parity.tolerance_mw.toFixed(4)} MW single-precision bound (${parity.logic_delta_mw.toFixed(4)} MW once inputs are rounded to REAL*4). Behaviour is pinned by ${pinned} characterization tests.`}
       </p>
+
+      <h3>Seeded parity sweep</h3>
+      <table className="grid" data-testid="parity-sweep">
+        <tbody>
+          <tr data-testid="sweep-cases">
+            <td>Random savecases (seed {parity.sweep.seed})</td>
+            <td className="numeric">{parity.sweep.cases}</td>
+          </tr>
+          <tr data-testid="sweep-failures">
+            <td>Failures</td>
+            <td className="numeric">
+              <span className={parity.sweep.failures === 0 ? 'pill pill-good' : 'pill pill-bad'}>
+                {parity.sweep.failures}
+              </span>
+            </td>
+          </tr>
+          <tr data-testid="sweep-ace">
+            <td>Max ACE delta (MW)</td>
+            <td className="numeric">{parity.sweep.max_ace_delta_mw.toFixed(4)}</td>
+          </tr>
+          <tr data-testid="sweep-setpoint">
+            <td>Max setpoint delta (MW)</td>
+            <td className="numeric">{parity.sweep.max_setpoint_delta_mw.toFixed(4)}</td>
+          </tr>
+          <tr data-testid="sweep-logic">
+            <td>Max delta on REAL*4-rounded inputs (MW)</td>
+            <td className="numeric">{parity.sweep.max_logic_delta_mw.toFixed(4)}</td>
+          </tr>
+          <tr data-testid="sweep-ambiguous">
+            <td>Deadband-ambiguous cases (setpoints not compared)</td>
+            <td className="numeric">{parity.sweep.deadband_ambiguous}</td>
+          </tr>
+          <tr data-testid="sweep-categories">
+            <td>Behaviours exercised</td>
+            <td>
+              {Object.entries(parity.sweep.categories)
+                .map(([name, count]) => `${name} ${count}`)
+                .join(' · ')}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {selected && (
         <aside className="drawer" role="dialog" aria-label="Legacy task" data-testid="legacy-drawer">
@@ -132,15 +199,23 @@ export default function ModernizationView({ modernization }: Props) {
               </dd>
             </div>
             <div>
+              <dt>Specification</dt>
+              <dd className="mono" data-testid="legacy-drawer-spec">{selected.spec ?? 'none'}</dd>
+            </div>
+            <div>
+              <dt>Deployment</dt>
+              <dd className="mono" data-testid="legacy-drawer-deployment">
+                {selected.deployment ?? 'in monolith'}
+              </dd>
+            </div>
+            <div>
               <dt>Characterization tests</dt>
               <dd data-testid="legacy-drawer-tests">{selected.characterization_tests}</dd>
             </div>
             <div>
               <dt>Migration readiness</dt>
               <dd data-testid="legacy-drawer-readiness">
-                {selected.characterization_tests === 0
-                  ? 'Blocked: no behaviour is pinned before the rewrite'
-                  : 'Ready for rewrite'}
+                {readiness(selected)}
               </dd>
             </div>
           </dl>

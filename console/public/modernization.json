@@ -8,8 +8,10 @@
       "function": "Reporting ACE and regulation allocation",
       "standard": "NERC BAL-001",
       "cycle": "4 s",
-      "target_module": "app/agc.py",
-      "port_status": "ported, unverified",
+      "target_module": "services/ace-service/ace_service/ace.py",
+      "port_status": "extracted to service, verified",
+      "spec": "docs/specs/RTGENACE.md",
+      "deployment": "services/ace-service \u2014 POST /v1/rtgenace/dispatch via ACE_SERVICE_URL",
       "source_lines": 110,
       "executable_lines": 74,
       "program_units": [
@@ -17,8 +19,8 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 29,
       "parity_checked": true
     },
     {
@@ -29,6 +31,8 @@
       "cycle": "2 s",
       "target_module": null,
       "port_status": "not started",
+      "spec": null,
+      "deployment": null,
       "source_lines": 72,
       "executable_lines": 50,
       "program_units": [
@@ -46,22 +50,27 @@
       "cycle": "library",
       "target_module": "app/savecase.py",
       "port_status": "ported, unverified",
+      "spec": "docs/specs/RTGENACE.md \u00a72.1",
+      "deployment": null,
       "source_lines": 163,
       "executable_lines": 130,
       "program_units": [
         "HAB_SAVECASE",
         "HDB_READ_EXPORT"
       ],
-      "target_coverage_pct": 0.0,
-      "characterization_tests": 0,
+      "target_coverage_pct": 100.0,
+      "characterization_tests": 13,
       "parity_checked": false
     }
   ],
   "parity": {
     "savecase": "rtnet_ems_0742.export",
+    "service": "services/ace-service",
     "legacy_ace_mw": -116.3462,
     "modern_ace_mw": -116.34,
     "max_abs_delta_mw": 0.0062,
+    "tolerance_mw": 0.0174,
+    "logic_delta_mw": 0.0,
     "matches": true,
     "setpoints": [
       {
@@ -84,6 +93,25 @@
         "legacy_mw": 0.0,
         "modern_mw": 0.0
       }
-    ]
+    ],
+    "sweep": {
+      "cases": 500,
+      "seed": 742,
+      "failures": 0,
+      "deadband_ambiguous": 0,
+      "max_ace_delta_mw": 0.0327,
+      "max_setpoint_delta_mw": 0.0004,
+      "max_logic_delta_mw": 0.0002,
+      "categories": {
+        "deadband": 60,
+        "limit clipped": 106,
+        "no participation": 17,
+        "non-participating unit": 421,
+        "out-of-limit unit": 124,
+        "pro-rata share": 43,
+        "ramp clipped": 425,
+        "suspect frequency quality": 37
+      }
+    }
   }
 }

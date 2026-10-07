@@ -30,7 +30,7 @@ test.describe('Verification backlog form', () => {
     await page.getByTestId('form-submit').click();
 
     await expect(page.getByTestId('form-errors')).toContainText(
-      'Target must exceed the current 68.7% coverage of network.py',
+      'Target must exceed the current 91.0% coverage of network.py',
     );
     await expect(page.getByTestId('kpi-backlog')).toHaveText('0');
   });
