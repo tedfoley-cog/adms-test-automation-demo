@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -29,11 +30,21 @@ MODERNIZATION = REPO / "console" / "public" / "modernization.json"
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 
-def _symbol_defined(source: str, symbol: str) -> bool:
-    name = re.escape(symbol)
-    return bool(
-        re.search(rf"^(def|class) {name}\b|^{name}\s*[:=]", source, re.MULTILINE)
-    )
+def _defined_names(path: Path) -> set[str]:
+    """Top-level functions, classes and assignments that Python would actually define."""
+    names: set[str] = set()
+    for node in ast.parse(path.read_text()).body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+    return names
+
+
+def _cell(text: str) -> str:
+    return text.replace("|", "\\|")
 
 
 def problems(doc: dict) -> list[str]:
@@ -57,12 +68,12 @@ def problems(doc: dict) -> list[str]:
         for ref in req["modern"]:
             file, _, symbol = ref.partition("::")
             path = REPO / file
-            if not path.is_file() or not _symbol_defined(path.read_text(), symbol):
+            if not path.is_file() or symbol not in _defined_names(path):
                 found.append(f"{rid}: {ref} not defined")
         for ref in req["tests"]:
             file, _, func = ref.partition("::")
             path = REPO / file
-            if not path.is_file() or f"def {func}(" not in path.read_text():
+            if not path.is_file() or func not in _defined_names(path):
                 found.append(f"{rid}: test {ref} not found")
         for case in req["cases"]:
             if case not in cases:
@@ -117,7 +128,7 @@ def render(doc: dict) -> str:
         cases = ", ".join(f"`{c}`" for c in req["cases"]) or "n/a"
         hist = ", ".join(req["history"]) or "n/a"
         out.append(
-            f"| **{req['id']}** | {req['statement']} | {legacy} | {modern} | {tests} | {cases} | {hist} |"
+            f"| **{req['id']}** | {_cell(req['statement'])} | {legacy} | {modern} | {tests} | {cases} | {hist} |"
         )
     out += [
         "",
@@ -137,7 +148,7 @@ def render(doc: dict) -> str:
             else "n/a"
         )
         out.append(
-            f"| {entry['id']} | {entry['kind']} | {entry['summary']} | {entry['resolution']} | {ref} |"
+            f"| {entry['id']} | {entry['kind']} | {_cell(entry['summary'])} | {_cell(entry['resolution'])} | {ref} |"
         )
     out += [
         "",
