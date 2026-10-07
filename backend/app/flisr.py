@@ -8,8 +8,11 @@ downstream through tie switches where the alternate feeder has capacity.
 
 from __future__ import annotations
 
+from collections import deque
+
 from .models import Feeder, IsolationStep, RestorationPlan
 from .network import (
+    adjacency,
     energised_nodes,
     load_on_nodes,
     sections_downstream_of,
@@ -22,17 +25,80 @@ class FlisrError(RuntimeError):
 
 
 def locate_fault(feeder: Feeder) -> str | None:
-    """Faulted section = the first section beyond the last fault indication."""
-    indicated = [section for section in feeder.sections if section.fault_indicator]
+    """Faulted section = the section just downstream of the farthest fault indication.
+
+    Distance is measured along the feeder's normal topology from the source, so the
+    order of `feeder.sections` is irrelevant. Refuses with FlisrError rather than
+    guess when the indications do not single out one section: non-radial topology,
+    an indication not fed from the source, indications on more than one branch, or
+    more than one unindicated section fed from the farthest indication.
+    """
+    indicated = {section.mrid for section in feeder.sections if section.fault_indicator}
     if not indicated:
         return None
 
-    order = {section.mrid: index for index, section in enumerate(feeder.sections)}
-    last_indicated = max(indicated, key=lambda section: order[section.mrid])
-    index = order[last_indicated.mrid]
-    if index + 1 < len(feeder.sections):
-        return feeder.sections[index + 1].mrid
-    return last_indicated.mrid
+    upstream = _upstream_sections(feeder)
+    unfed = indicated - upstream.keys()
+    if unfed:
+        raise FlisrError(
+            f"fault indication on {', '.join(sorted(unfed))} not fed from {feeder.source_node}"
+        )
+
+    def path_from_source(mrid: str) -> list[str]:
+        path: list[str] = []
+        current: str | None = mrid
+        while current is not None:
+            path.append(current)
+            current = upstream[current]
+        return path
+
+    farthest = max(indicated, key=lambda mrid: len(path_from_source(mrid)))
+    stray = indicated - set(path_from_source(farthest))
+    if stray:
+        raise FlisrError(
+            f"fault indications on more than one branch: {', '.join(sorted(stray))} "
+            f"is not upstream of {farthest}"
+        )
+
+    beyond = [mrid for mrid, parent in upstream.items() if parent == farthest]
+    if not beyond:
+        return farthest
+    if len(beyond) > 1:
+        raise FlisrError(
+            f"fault beyond {farthest} could be on any of {', '.join(beyond)}; "
+            "manual patrol required"
+        )
+    return beyond[0]
+
+
+def _upstream_sections(feeder: Feeder) -> dict[str, str | None]:
+    """Section mRID -> nearest upstream section mRID (None at the feeder head), for
+    every section fed from the source in the normal switching state."""
+    normal = feeder.model_copy(deep=True)
+    for switch in normal.switches:
+        switch.open = switch.normal_open
+    graph = adjacency(normal)
+    sections = {section.mrid for section in feeder.sections}
+
+    upstream: dict[str, str | None] = {}
+    feeding: dict[str, str | None] = {normal.source_node: None}
+    walked: set[str] = set()
+    queue = deque([normal.source_node])
+    while queue:
+        node = queue.popleft()
+        for neighbour, element in graph.get(node, []):
+            if element in walked:
+                continue
+            walked.add(element)
+            if neighbour in feeding:
+                raise FlisrError(f"{feeder.name} is not radial: {element} closes a loop")
+            if element in sections:
+                upstream[element] = feeding[node]
+                feeding[neighbour] = element
+            else:
+                feeding[neighbour] = feeding[node]
+            queue.append(neighbour)
+    return upstream
 
 
 def _isolation_switches(feeder: Feeder, faulted_section_mrid: str) -> list[IsolationStep]:
