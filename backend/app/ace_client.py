@@ -7,6 +7,7 @@ The monolith no longer computes ACE. If the service is unreachable it gets no se
 from __future__ import annotations
 
 import json
+import math
 import urllib.error
 import urllib.request
 
@@ -78,15 +79,19 @@ def dispatch(state: BalancingState, units: list[Unit]) -> dict[str, object]:
         raise AceServiceUnavailable("ace-service returned a malformed reply") from exc
 
     try:
-        return {
-            "ace_mw": float(result["ace_mw"]),
-            "setpoint_deltas_mw": {
-                str(sp["unit"]): float(sp["setpoint_delta_mw"]) for sp in result["setpoints"]
-            },
-            "warnings": list(result.get("warnings", [])),
-        }
-    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        ace_mw = _finite(result["ace_mw"])
+        deltas = {str(sp["unit"]): _finite(sp["setpoint_delta_mw"]) for sp in result["setpoints"]}
+        warnings = list(result.get("warnings", []))
+    except (KeyError, TypeError, ValueError, AttributeError, OverflowError) as exc:
         raise AceServiceUnavailable("ace-service returned a malformed reply") from exc
+    return {"ace_mw": ace_mw, "setpoint_deltas_mw": deltas, "warnings": warnings}
+
+
+def _finite(value: object) -> float:
+    number = float(value)  # type: ignore[arg-type]
+    if not math.isfinite(number):
+        raise ValueError("non-finite value in ace-service reply")
+    return number
 
 
 def _refusal_detail(exc: urllib.error.HTTPError) -> object:

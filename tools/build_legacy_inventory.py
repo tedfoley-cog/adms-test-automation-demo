@@ -164,7 +164,8 @@ def main() -> None:
 
     tasks = []
     failed: list[str] = []
-    for task in TASKS:
+    for template in TASKS:
+        task = dict(template)
         stats = source_stats(REPO / task["source"])
         target = task["target_module"]
         suite = task.pop("characterization_suite")

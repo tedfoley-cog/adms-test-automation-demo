@@ -63,11 +63,14 @@ class FakeAceService:
                 fake.requests.append((self.path, json.loads(self.rfile.read(length))))
                 time.sleep(fake.delay_s)
                 payload = fake.raw if fake.raw is not None else json.dumps(fake.body).encode()
-                self.send_response(fake.status)
-                self.send_header("content-type", "application/json")
-                self.send_header("content-length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
+                try:
+                    self.send_response(fake.status)
+                    self.send_header("content-type", "application/json")
+                    self.send_header("content-length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # client already gave up (timeout test)
 
             def log_message(self, *_: object) -> None:
                 pass
@@ -130,7 +133,13 @@ def test_service_refusal_is_returned_as_422(ace_service):
 
 @pytest.mark.parametrize(
     ("raw", "body"),
-    [(b"<html>not json</html>", None), (None, {"ace_mw": -51.5}), (None, ["not", "an", "object"])],
+    [
+        (b"<html>not json</html>", None),
+        (None, {"ace_mw": -51.5}),
+        (None, ["not", "an", "object"]),
+        (b'{"ace_mw": 1' + b"0" * 400 + b', "setpoints": []}', None),
+        (b'{"ace_mw": NaN, "setpoints": []}', None),
+    ],
 )
 def test_malformed_service_reply_fails_safe_with_503(ace_service, raw, body):
     ace_service.raw = raw
