@@ -100,11 +100,21 @@ def run_compliance(suite: str) -> dict:
 
 
 def scenario_row(name: str, r: run_renode.RunResult) -> dict:
+    expected = EXPECTED[name]
     target = int(r.result.get("target", "0x0"), 16) if r.result else 0
     observed = [e for bit, e in enumerate(ELEMENTS) if target & (1 << bit)]
+    # The latched target only records the first trip, so every later element
+    # operation comes from the SOE log. A 50BF retrip of the already-tripped
+    # breaker is expected after any trip and is not a separate decision.
+    for e in r.events:
+        element = e["detail"].split()[0] if e["code"] == "OPERATE" and e["detail"] else None
+        if element is None or element in observed:
+            continue
+        if element == "50BF-RT" and expected["elements"]:
+            continue
+        observed.append(element)
     if r.result.get("tripb") and "50BF-86B" not in observed:
         observed.append("50BF-86B")
-    expected = EXPECTED[name]
     trips = [e for e in r.events if e["code"] == "TRIP1"]
     clear_ms = None
     if trips:
