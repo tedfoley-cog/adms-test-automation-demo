@@ -6,7 +6,7 @@ test('golden path: confirm the Tier 1 lift, tie AGC to its verified legacy port,
   await page.goto('/');
 
   // 1. KPIs from the committed coverage report after the Tier 1 lift and RTGENACE port.
-  await expect(page.getByTestId('kpi-overall')).toHaveText('74.6%');
+  await expect(page.getByTestId('kpi-overall')).toHaveText('75.3%');
   await expect(page.getByTestId('kpi-below')).toHaveText('3');
   await expect(page.getByTestId('kpi-tier1')).toHaveText('0');
   await expect(page.getByTestId('kpi-legacy')).toHaveText('1');
@@ -32,7 +32,7 @@ test('golden path: confirm the Tier 1 lift, tie AGC to its verified legacy port,
   // 3. AGC sits under the RTGENACE port, now verified against the legacy Fortran.
   await page.getByTestId('tab-modernization').click();
   await expect(page.getByTestId('legacy-RTGENACE')).toContainText('app/rtgenace.py');
-  await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('98.4%');
+  await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('98.7%');
   await expect(page.getByTestId('legacy-status-RTGENACE')).toHaveText('ported, verified');
   await expect(page.getByTestId('parity-ace')).toContainText('-116.34');
   await expect(page.getByTestId('corpus-matched')).toHaveText('69 of 69');
@@ -40,7 +40,7 @@ test('golden path: confirm the Tier 1 lift, tie AGC to its verified legacy port,
   // 4. Run history shows the lift against the baseline.
   await page.getByTestId('tab-runs').click();
   await expect(page.getByTestId('run-baseline')).toContainText('35.6%');
-  await expect(page.getByTestId('run-rtgenace-port-tier1-lift')).toContainText('74.6%');
+  await expect(page.getByTestId('run-rtgenace-port-tier1-lift')).toContainText('75.3%');
   await expect(page.getByTestId('run-nightly-2026-09-17')).toContainText('34.1%');
   await expect(page.getByTestId('tier-targets')).toContainText(
     '90% line coverage required before release sign-off',

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-07T20:08:10+00:00",
+  "generated_at": "2026-10-07T20:20:45+00:00",
   "label": "rtgenace-port-tier1-lift",
-  "overall_pct": 74.6,
-  "lines_total": 705,
-  "lines_covered": 526,
+  "overall_pct": 75.3,
+  "lines_total": 726,
+  "lines_covered": 547,
   "tier_targets": {
     "Tier 1": 90,
     "Tier 2": 75,
@@ -21,12 +21,12 @@
       "team": "AEMS Applications",
       "tier": "Tier 1",
       "target_pct": 90,
-      "lines_total": 64,
-      "lines_covered": 63,
-      "coverage_pct": 98.4,
+      "lines_total": 76,
+      "lines_covered": 75,
+      "coverage_pct": 98.7,
       "gap_pct": 0.0,
       "uncovered_lines": [
-        136
+        168
       ],
       "status": "meets target"
     },
@@ -77,8 +77,8 @@
       "team": "AEMS Applications",
       "tier": "Tier 1",
       "target_pct": 90,
-      "lines_total": 26,
-      "lines_covered": 26,
+      "lines_total": 35,
+      "lines_covered": 35,
       "coverage_pct": 100.0,
       "gap_pct": 0.0,
       "uncovered_lines": [],

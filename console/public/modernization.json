@@ -17,7 +17,7 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 98.4,
+      "target_coverage_pct": 98.7,
       "characterization_tests": 142,
       "parity_checked": true
     },
