@@ -77,7 +77,8 @@ def build_plan(
     if faulted is None:
         plan.notes.append("no fault indication received; manual patrol required")
         plan.customers_remaining = sum(
-            section.customers for section in sections_downstream_of(feeder, lockout.to_node)
+            section.customers
+            for section in sections_downstream_of(feeder, lockout.to_node)
         )
         return plan
 
@@ -115,7 +116,9 @@ def build_plan(
         )
         plan.transferred_load_kw += transferred
         plan.customers_restored += sum(
-            section.customers for section in feeder.sections if section.to_node in candidate_nodes
+            section.customers
+            for section in feeder.sections
+            if section.to_node in candidate_nodes
         )
 
     if lockout.scada_controllable:
@@ -130,7 +133,9 @@ def build_plan(
     return plan
 
 
-def _nodes_restored_by(feeder: Feeder, tie_mrid: str, isolated_switches: set[str]) -> set[str]:
+def _nodes_restored_by(
+    feeder: Feeder, tie_mrid: str, isolated_switches: set[str]
+) -> set[str]:
     """Nodes picked up by closing `tie_mrid` after isolation, excluding the
     part of the feeder still fed from its own source."""
     working = feeder.model_copy(deep=True)
