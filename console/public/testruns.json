@@ -2,33 +2,33 @@
   {
     "label": "nightly-2026-09-17",
     "generated_at": "2026-09-17T03:12:04+00:00",
-    "overall_pct": 34.1,
-    "modules_below_target": 9,
-    "lines_total": 611,
-    "lines_covered": 208
+    "overall_pct": 60.9,
+    "modules_below_target": 19,
+    "lines_total": 1640,
+    "lines_covered": 998
   },
   {
     "label": "nightly-2026-09-19",
     "generated_at": "2026-09-19T03:11:47+00:00",
-    "overall_pct": 34.1,
-    "modules_below_target": 9,
-    "lines_total": 611,
-    "lines_covered": 208
+    "overall_pct": 60.9,
+    "modules_below_target": 19,
+    "lines_total": 1640,
+    "lines_covered": 998
   },
   {
     "label": "release-candidate-24.3",
     "generated_at": "2026-09-21T14:02:19+00:00",
-    "overall_pct": 35.4,
-    "modules_below_target": 9,
-    "lines_total": 615,
-    "lines_covered": 218
+    "overall_pct": 62.0,
+    "modules_below_target": 18,
+    "lines_total": 1646,
+    "lines_covered": 1021
   },
   {
     "label": "baseline",
-    "generated_at": "2026-09-22T15:19:28+00:00",
-    "overall_pct": 35.6,
-    "modules_below_target": 9,
-    "lines_total": 615,
-    "lines_covered": 219
+    "generated_at": "2026-10-07T21:50:00+00:00",
+    "overall_pct": 62.6,
+    "modules_below_target": 18,
+    "lines_total": 1651,
+    "lines_covered": 1034
   }
 ]

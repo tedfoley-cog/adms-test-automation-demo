@@ -3,13 +3,21 @@ import { useEffect, useMemo, useState } from 'react';
 import BacklogView from './views/BacklogView';
 import CoverageView from './views/CoverageView';
 import ModernizationView from './views/ModernizationView';
+import RealtimeView from './views/RealtimeView';
 import RunsView from './views/RunsView';
-import type { BacklogItem, CoverageReport, ModernizationReport, TestRun } from './types';
+import type {
+  BacklogItem,
+  CoverageReport,
+  ModernizationReport,
+  RealtimeReport,
+  TestRun,
+} from './types';
 
-type Tab = 'coverage' | 'modernization' | 'runs' | 'backlog';
+type Tab = 'coverage' | 'realtime' | 'modernization' | 'runs' | 'backlog';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'coverage', label: 'Coverage' },
+  { id: 'realtime', label: 'Real-time' },
   { id: 'modernization', label: 'Legacy modernization' },
   { id: 'runs', label: 'Test runs' },
   { id: 'backlog', label: 'Verification backlog' },
@@ -19,6 +27,7 @@ export default function App() {
   const [report, setReport] = useState<CoverageReport | null>(null);
   const [runs, setRuns] = useState<TestRun[]>([]);
   const [modernization, setModernization] = useState<ModernizationReport | null>(null);
+  const [realtime, setRealtime] = useState<RealtimeReport | null>(null);
   const [backlog, setBacklog] = useState<BacklogItem[]>([]);
   const [tab, setTab] = useState<Tab>('coverage');
   const [error, setError] = useState<string | null>(null);
@@ -28,15 +37,17 @@ export default function App() {
       fetch('coverage.json').then((r) => r.json() as Promise<CoverageReport>),
       fetch('testruns.json').then((r) => r.json() as Promise<TestRun[]>),
       fetch('modernization.json').then((r) => r.json() as Promise<ModernizationReport>),
+      fetch('realtime.json').then((r) => r.json() as Promise<RealtimeReport>),
     ])
-      .then(([coverage, history, legacy]) => {
+      .then(([coverage, history, legacy, rt]) => {
         setReport(coverage);
         setRuns(history);
         setModernization(legacy);
+        setRealtime(rt);
       })
       .catch(() =>
         setError(
-          'Reports not found. Run tools/build_coverage_report.py and tools/build_legacy_inventory.py.',
+          'Reports not found. Run tools/build_coverage_report.py, tools/build_legacy_inventory.py and tools/build_realtime_report.py.',
         ),
       );
   }, []);
@@ -60,7 +71,7 @@ export default function App() {
     );
   }
 
-  if (!report || !modernization) {
+  if (!report || !modernization || !realtime) {
     return (
       <main className="shell">
         <p data-testid="loading">Loading coverage report…</p>
@@ -124,6 +135,7 @@ export default function App() {
             onQueue={(item) => setBacklog((current) => [...current, item])}
           />
         )}
+        {tab === 'realtime' && <RealtimeView realtime={realtime} />}
         {tab === 'modernization' && <ModernizationView modernization={modernization} />}
         {tab === 'runs' && <RunsView runs={runs} report={report} />}
         {tab === 'backlog' && (

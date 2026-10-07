@@ -1,0 +1,10 @@
+// STM32F4 Discovery (STM32F407VG) as the feeder IED.
+// Timer clock matches APB1 x2 = 84 MHz after the PLL configuration in
+// target/stm32f407/main.c; DWT gives the cycle counter used for timing.
+using "platforms/boards/stm32f4_discovery.repl"
+
+timer2:
+    frequency: 84000000
+
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 168000000

@@ -37,7 +37,7 @@ test.describe('Verification backlog form', () => {
 
   test('a valid request is queued, confirmed and removable', async ({ page }) => {
     await page.getByTestId('form-module').selectOption('firmware/src/dnp3_outstation.c');
-    await page.getByTestId('form-target').fill('85');
+    await page.getByTestId('form-target').fill('95');
     await page.getByTestId('form-technique').selectOption('Protocol conformance replay');
     await page
       .getByTestId('form-justification')
@@ -45,12 +45,12 @@ test.describe('Verification backlog form', () => {
     await page.getByTestId('form-submit').click();
 
     await expect(page.getByTestId('form-confirmation')).toHaveText(
-      'dnp3_outstation.c queued at 85% target.',
+      'dnp3_outstation.c queued at 95% target.',
     );
     await expect(page.getByTestId('kpi-backlog')).toHaveText('1');
     const entry = page.getByTestId('backlog-dnp3_outstation.c');
     await expect(entry).toContainText('Protocol conformance replay');
-    await expect(entry).toContainText('85% target');
+    await expect(entry).toContainText('95% target');
     await expect(entry).toContainText('Tier 2');
 
     await page.getByTestId('remove-dnp3_outstation.c').click();

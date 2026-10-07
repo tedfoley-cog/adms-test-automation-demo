@@ -53,6 +53,14 @@ the step 2 tests be the gate.
    estimation, records for savecase ingest. No new dependencies.
 3. Re-run the step 1 commands plus `ruff check backend tools`. Coverage of the touched module
    must not drop.
+4. Firmware under `firmware/src/` also has to hold its real-time budget on the target. Run
+   `python tools/build_realtime_report.py` before and after the fix: it builds the STM32F407
+   image, boots it in Renode, plays every secondary-injection scenario and fails if any task
+   exceeds its cycle budget in `firmware/include/ied_config.h` or any scenario operates the
+   wrong element. Report worst-case cycles per task before → after. Never raise a budget to
+   make a fix fit. Time- or frequency-dependent defects should also be reproduced on the
+   emulated target (`python tools/run_renode.py --help`). Renode is instruction-accurate, not
+   cycle-accurate: say so, and do not present its numbers as silicon measurements.
 
 ## 6. Pull request
 
@@ -61,5 +69,6 @@ Open a PR against `main`; never merge it. The body must contain:
 - **Defect** — one sentence in operational terms, plus the step 3 failure output.
 - **Root cause** — the faulty assumption, with file and line.
 - **Fix** — the diff in pseudocode and what now happens on ambiguous input.
-- **Evidence** — pinned-behaviour count, invariant cases run, coverage before → after.
+- **Evidence** — pinned-behaviour count, invariant cases run, coverage before → after, and for
+  firmware the worst-case cycles per task before → after against budget.
 - **Blast radius** — which inputs change behaviour and which provably do not.

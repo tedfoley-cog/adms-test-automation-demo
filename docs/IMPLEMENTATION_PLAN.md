@@ -4,8 +4,8 @@
 
 A grid-control software portfolio (embedded feeder protection firmware, ADMS/AEMS backend
 services, and a legacy Habitat-style EMS application written in Fortran) ships with very
-little automated test coverage: 35.6% line coverage across 11 modules, nine of them below
-their release-gate target, and zero characterization tests over the legacy tasks that are
+thin automated test coverage: 62.6% line coverage across 26 modules, 18 of them below
+their release-gate target (11 Tier 1), and zero characterization tests over the legacy tasks that are
 being rewritten. The demo shows Devin doing the QA work an automation-first mandate needs:
 measuring real coverage, ranking the gaps by control-function criticality, generating and
 running tests for firmware and backend, pinning legacy Fortran behaviour with
@@ -123,8 +123,8 @@ gcov, coverage.py and the Fortran replay — verified populated in the dry-run.
 
 ## 8. UI test gauntlet plan
 
-Surface: the console's four views (Coverage, Legacy modernization, Test runs, Verification
-backlog). Eleven scenarios across five specs under `tests/ui/`, mapped in
+Surface: the console's five views (Coverage, Real-time, Legacy modernization, Test runs,
+Verification backlog). Fourteen scenarios across six specs under `tests/ui/`, mapped in
 `tests/ui/UI_TEST_PLAN.md`: filter/sort/search combinations asserting exact result sets,
 module drawer drill-down with a queue side effect, legacy task inventory and savecase parity
 assertions, form validation against live coverage values, and a golden path chaining all four

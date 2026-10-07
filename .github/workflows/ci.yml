@@ -20,10 +20,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y gfortran
-      - run: make test
+      - run: make test sim
+        working-directory: firmware
+      - run: ./build/pmu_compliance --suite magnitude && ./build/pmu_compliance --suite phase
         working-directory: firmware
       - run: make replay
         working-directory: legacy/habitat
+
+  target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+          wget -q https://github.com/renode/renode/releases/download/v1.15.3/renode_1.15.3_amd64.deb
+          sudo apt-get install -y ./renode_1.15.3_amd64.deb
+      - name: Emulated STM32F407 timing budgets and fault scenarios
+        run: python3 tools/build_realtime_report.py --label ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: realtime-report
+          path: console/public/realtime.json
 
   ui:
     runs-on: ubuntu-latest

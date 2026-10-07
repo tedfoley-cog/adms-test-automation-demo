@@ -259,6 +259,12 @@ h3 {
   background: #fef2f2;
 }
 
+.pill-warn {
+  color: var(--warn);
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
 .pill-good {
   color: var(--good);
   border-color: #bbf7d0;
@@ -429,4 +435,27 @@ h3 {
 
 .error {
   color: var(--bad);
+}
+
+.bar span.bar-bad {
+  background: var(--bad);
+}
+
+.rt-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.rt-facts dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.rt-facts dd {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
 }

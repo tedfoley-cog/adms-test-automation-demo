@@ -43,6 +43,96 @@ CATALOG: dict[str, dict[str, str]] = {
         "tier": "Tier 2",
         "team": "Substation Comms",
     },
+    "firmware/src/prot/distance.c": {
+        "function": "Mho distance protection, zones 1-2 (21)",
+        "standard": "IEC 60255-121",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/prot/oc_element.c": {
+        "function": "Phasor overcurrent elements (50/51, IEC + IEEE curves)",
+        "standard": "IEC 60255-151 / IEEE C37.112",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/prot/breaker_failure.c": {
+        "function": "Breaker failure retrip and bus lockout (50BF/86B)",
+        "standard": "IEEE C37.119",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/prot/freq_element.c": {
+        "function": "Under/over-frequency and ROCOF elements (81U/O/R)",
+        "standard": "IEC 60255-181",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/prot/trip_matrix.c": {
+        "function": "Trip matrix, targets and lockout",
+        "standard": "IEC 61850-7-4 (PTRC)",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/ied/ied_app.c": {
+        "function": "Real-time IED executive (ISR, protection, PMU, comms)",
+        "standard": "IEC 60255-1",
+        "tier": "Tier 1",
+        "team": "Protection & Control",
+    },
+    "firmware/src/pmu/synchrophasor.c": {
+        "function": "Synchrophasor, frequency and ROCOF estimation (P class)",
+        "standard": "IEEE C37.118.1-2011",
+        "tier": "Tier 1",
+        "team": "Wide-Area Monitoring",
+    },
+    "firmware/src/pmu/timebase.c": {
+        "function": "PPS-disciplined sample clock and UTC time quality",
+        "standard": "IEEE C37.118.1-2011 / IEC 61850-9-3",
+        "tier": "Tier 1",
+        "team": "Wide-Area Monitoring",
+    },
+    "firmware/src/pmu/c37118.c": {
+        "function": "C37.118.2 data and CFG-2 frame encoding",
+        "standard": "IEEE C37.118.2-2011",
+        "tier": "Tier 2",
+        "team": "Wide-Area Monitoring",
+    },
+    "firmware/src/dsp/phasor.c": {
+        "function": "Full-cycle DFT phasors and DC-offset mimic filter",
+        "standard": "IEC 60255-118-1",
+        "tier": "Tier 2",
+        "team": "Protection & Control",
+    },
+    "firmware/src/dsp/symcomp.c": {
+        "function": "Symmetrical components (Fortescue)",
+        "standard": "IEC 60255-118-1",
+        "tier": "Tier 2",
+        "team": "Protection & Control",
+    },
+    "firmware/src/dsp/sample_history.c": {
+        "function": "Sample history window for DFT and PMU filters",
+        "standard": "Internal design",
+        "tier": "Tier 3",
+        "team": "Protection & Control",
+    },
+    "firmware/src/rt/sample_ring.c": {
+        "function": "Lock-free ISR-to-task sample ring",
+        "standard": "Internal design",
+        "tier": "Tier 2",
+        "team": "Protection & Control",
+    },
+    "firmware/src/rt/cycle_stats.c": {
+        "function": "Per-task execution-time budgets (DWT cycle counter)",
+        "standard": "Internal design",
+        "tier": "Tier 2",
+        "team": "Protection & Control",
+    },
+    "firmware/src/ied/event_recorder.c": {
+        "function": "Sequence-of-events recorder (1 us UTC stamps)",
+        "standard": "IEC 61850-7-4",
+        "tier": "Tier 2",
+        "team": "Protection & Control",
+    },
     "app/flisr.py": {
         "function": "Fault location, isolation and service restoration",
         "standard": "IEEE 1366 (reliability impact)",
@@ -96,20 +186,26 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 def firmware_modules() -> list[dict[str, object]]:
     run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
+    # Each test binary emits its own gcov record per source file; merge the
+    # line hit counts so a module is reported once across the whole suite.
+    hits: dict[str, dict[int, int]] = {}
     for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):
             source = file_entry["file"]
-            if not source.startswith("src/"):
+            if not source.startswith("src/") or not source.endswith(".c"):
                 continue
-            path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            lines = hits.setdefault(f"firmware/{source}", {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                lines[number] = lines.get(number, 0) + line.get("count", 0)
+
+    modules: list[dict[str, object]] = []
+    for path, lines in sorted(hits.items()):
+        covered = sum(1 for count in lines.values() if count > 0)
+        uncovered = sorted(number for number, count in lines.items() if count == 0)
+        modules.append(build_module(path, "firmware", "C", len(lines), covered, uncovered))
     return modules
 
 
