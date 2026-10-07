@@ -2,7 +2,7 @@ export interface ModuleCoverage {
   id: string;
   name: string;
   path: string;
-  layer: 'firmware' | 'backend';
+  layer: 'firmware' | 'backend' | 'service';
   language: string;
   function: string;
   standard: string;
@@ -43,7 +43,9 @@ export interface LegacyTask {
   standard: string;
   cycle: string;
   target_module: string | null;
-  port_status: 'ported, unverified' | 'not started';
+  port_status: 'extracted to service, verified' | 'ported, unverified' | 'not started';
+  spec: string | null;
+  deployment: string | null;
   source_lines: number;
   executable_lines: number;
   program_units: string[];
@@ -58,17 +60,32 @@ export interface ParitySetpoint {
   modern_mw: number;
 }
 
+export interface ParitySweep {
+  cases: number;
+  seed: number;
+  failures: number;
+  deadband_ambiguous: number;
+  max_ace_delta_mw: number;
+  max_setpoint_delta_mw: number;
+  max_logic_delta_mw: number;
+  categories: Record<string, number>;
+}
+
 export interface ModernizationReport {
   clone: string;
   platform: string;
   tasks: LegacyTask[];
   parity: {
     savecase: string;
+    service: string;
     legacy_ace_mw: number;
     modern_ace_mw: number;
     max_abs_delta_mw: number;
+    tolerance_mw: number;
+    logic_delta_mw: number;
     matches: boolean;
     setpoints: ParitySetpoint[];
+    sweep: ParitySweep;
   };
 }
 

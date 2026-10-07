@@ -1,4 +1,4 @@
-"""Merge firmware (gcov) and backend (coverage.py) results into one report.
+"""Merge firmware (gcov), backend and ace-service (coverage.py) results into one report.
 
 Output: console/public/coverage.json, consumed by the QA console, plus an
 appended entry in console/public/testruns.json so the run history is real.
@@ -20,6 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 FIRMWARE = REPO / "firmware"
 BACKEND = REPO / "backend"
+ACE_SERVICE = REPO / "services" / "ace-service"
 PUBLIC = REPO / "console" / "public"
 
 # Static metadata about each module: the control-room function it implements,
@@ -49,10 +50,40 @@ CATALOG: dict[str, dict[str, str]] = {
         "tier": "Tier 1",
         "team": "ADMS Applications",
     },
-    "app/agc.py": {
-        "function": "Automatic generation control / reporting ACE",
+    "app/ace_client.py": {
+        "function": "AGC dispatch client for the external ACE service (fail-safe)",
         "standard": "NERC BAL-001",
         "tier": "Tier 1",
+        "team": "AEMS Applications",
+    },
+    "app/config.py": {
+        "function": "Runtime configuration from the environment",
+        "standard": "Internal configuration contract",
+        "tier": "Tier 3",
+        "team": "Platform",
+    },
+    "services/ace-service/ace_service/ace.py": {
+        "function": "Automatic generation control / reporting ACE (RTGENACE port)",
+        "standard": "NERC BAL-001",
+        "tier": "Tier 1",
+        "team": "AEMS Applications",
+    },
+    "services/ace-service/ace_service/hdb_export.py": {
+        "function": "HDB savecase export reader feeding AGC (HAB_SAVECASE semantics)",
+        "standard": "HDB record conventions",
+        "tier": "Tier 1",
+        "team": "AEMS Applications",
+    },
+    "services/ace-service/ace_service/schemas.py": {
+        "function": "ACE service contract and unsafe-input refusals",
+        "standard": "NERC BAL-001",
+        "tier": "Tier 1",
+        "team": "AEMS Applications",
+    },
+    "services/ace-service/ace_service/service.py": {
+        "function": "ACE service HTTP surface",
+        "standard": "Internal API contract",
+        "tier": "Tier 2",
         "team": "AEMS Applications",
     },
     "app/state_estimator.py": {
@@ -95,8 +126,9 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def firmware_modules() -> list[dict[str, object]]:
+    """Each test binary links every source, so merge gcov line hits per source file."""
     run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
+    hits: dict[str, dict[int, int]] = {}
     for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -104,23 +136,29 @@ def firmware_modules() -> list[dict[str, object]]:
             source = file_entry["file"]
             if not source.startswith("src/"):
                 continue
-            path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            lines = hits.setdefault(f"firmware/{source}", {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                lines[number] = lines.get(number, 0) + line.get("count", 0)
+
+    modules: list[dict[str, object]] = []
+    for path, lines in sorted(hits.items()):
+        uncovered = sorted(number for number, count in lines.items() if count == 0)
+        total = len(lines)
+        modules.append(build_module(path, "firmware", "C", total, total - len(uncovered), uncovered))
     return modules
 
 
-def backend_modules() -> list[dict[str, object]]:
-    venv_python = BACKEND / ".venv" / "bin" / "python"
+def python_modules(
+    project: Path, package: str, layer: str, prefix: str = ""
+) -> list[dict[str, object]]:
+    venv_python = project / ".venv" / "bin" / "python"
     python = str(venv_python) if venv_python.exists() else "python3"
     run(
-        [python, "-m", "pytest", "-q", "--cov=app", "--cov-report=json:coverage.json"],
-        BACKEND,
+        [python, "-m", "pytest", "-q", f"--cov={package}", "--cov-report=json:coverage.json"],
+        project,
     )
-    with (BACKEND / "coverage.json").open(encoding="utf-8") as handle:
+    with (project / "coverage.json").open(encoding="utf-8") as handle:
         payload = json.load(handle)
 
     modules: list[dict[str, object]] = []
@@ -128,8 +166,8 @@ def backend_modules() -> list[dict[str, object]]:
         summary = entry["summary"]
         modules.append(
             build_module(
-                path,
-                "backend",
+                f"{prefix}{path}",
+                layer,
                 "Python",
                 summary["num_statements"],
                 summary["covered_lines"],
@@ -137,6 +175,14 @@ def backend_modules() -> list[dict[str, object]]:
             )
         )
     return modules
+
+
+def backend_modules() -> list[dict[str, object]]:
+    return python_modules(BACKEND, "app", "backend")
+
+
+def service_modules() -> list[dict[str, object]]:
+    return python_modules(ACE_SERVICE, "ace_service", "service", "services/ace-service/")
 
 
 def build_module(
@@ -176,7 +222,7 @@ def main() -> None:
     parser.add_argument("--label", default="baseline", help="label for this run")
     args = parser.parse_args()
 
-    modules = firmware_modules() + backend_modules()
+    modules = firmware_modules() + backend_modules() + service_modules()
     total_lines = sum(int(m["lines_total"]) for m in modules)
     covered_lines = sum(int(m["lines_covered"]) for m in modules)
     overall = round((covered_lines / total_lines) * 100, 1) if total_lines else 0.0

@@ -72,6 +72,7 @@ export default function CoverageView({ report, backlog, onQueue }: Props) {
             <option value="all">All</option>
             <option value="firmware">Firmware</option>
             <option value="backend">Backend</option>
+            <option value="service">Service</option>
           </select>
         </label>
         <label>

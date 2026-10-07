@@ -10,10 +10,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -e './backend[dev]'
+      - run: pip install -e './backend[dev]' -e './services/ace-service'
       - run: ruff check backend tools
       - run: pytest
         working-directory: backend
+
+  ace-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y gfortran
+      - run: pip install -e './services/ace-service[dev]'
+      - run: ruff check . && ruff format --check .
+        working-directory: services/ace-service
+      - name: Characterization, parity (savecase + 500 seeded) and service tests
+        run: pytest --cov=ace_service --cov-branch --cov-report=term-missing
+        working-directory: services/ace-service
+      - run: docker build -t ace-service:ci services/ace-service
 
   native:
     runs-on: ubuntu-latest
