@@ -2,7 +2,7 @@
   {
     "id": "U1",
     "wave": 1,
-    "title": "Baseline: pin current FLISR behaviour and record failing reproductions on unmodified main",
+    "title": "[Design attempt 6 amendment, A-5] Baseline: pin current FLISR behaviour and record failing reproductions on the unmodified base backend/ tree @ 20d2a30 (PR #13)",
     "requirement_ids": [
       "REQ-TIECAP-19",
       "REQ-TIECAP-22"
@@ -22,7 +22,7 @@
       "backend/tests/test_flisr.py is not in any unit: it must pass unchanged to the end of the run.",
       "[Design attempt 5 amendment, A-4.2] Characterization also excludes ties held by the DEF-FLISR-7 guard (pinned by the base's own tests) and invalid section loads (Q-DESIGN-2)."
     ],
-    "oracle": "Characterization: the values measured on unmodified main are the oracle (re-run must be identical before and after U2-U4). Reproductions: operational expectation from REQ-TIECAP-5 and REQ-TIECAP-8 (no close step for a tie with missing or non-finite capacity), checked by observing the failure on main."
+    "oracle": "[Design attempt 6 amendment, A-5] Characterization: the values measured on the unmodified base backend/ tree of agent/rca-backfeed/fix @ 20d2a303c9548f9f7170cb3dfef1487fb7e9a009 (PR #13) are the oracle (re-run must be identical before and after U2-U4). Reproductions: operational expectation from REQ-TIECAP-5 and REQ-TIECAP-8 (no close step for a tie with missing or non-finite capacity), checked by observing the failure on that base."
   },
   {
     "id": "U2",
@@ -88,7 +88,8 @@
     "safety": "safety-critical (inherited, STD-REQ-6). Touches protected path backend/app/flisr.py: two human reviewers required irrespective of agent confidence (STD-GOV-6, STD-SAFETY-1).",
     "scope_notes": [
       "Why one unit for two modules: REQ-TIECAP-15 and REQ-TIECAP-16 each state a build_plan clause and an HTTP clause, and the legacy tie_capacity_kw path (REQ-TIECAP-16) must be migrated in the same step as the new tie_capacity path or the U1 characterization (which uses the legacy interface) breaks or REQ-TIECAP-5's inspection of flisr.py:98 fails in an intermediate state. Splitting would require a transiently non-conforming unit.",
-      "Smallest fail-safe change (STD-SAFETY-4): remove the 0.0 default at flisr.py:98; per-tie usability with precedence INVALID > UNKNOWN > STALE > EXCEEDED; close iff L <= C + 0.5 kW; as_of read once per call (REQ-TIECAP-20); blocked ties add only to customers_remaining (REQ-TIECAP-18); one note per blocked tie (REQ-TIECAP-12).",
+      "[SUPERSEDED by Design attempt 6 amendment, A-5; see the next note] Smallest fail-safe change (STD-SAFETY-4): remove the 0.0 default at flisr.py:98; per-tie usability with precedence INVALID > UNKNOWN > STALE > EXCEEDED; close iff L <= C + 0.5 kW; as_of read once per call (REQ-TIECAP-20); blocked ties add only to customers_remaining (REQ-TIECAP-18); one note per blocked tie (REQ-TIECAP-12).",
+      "[Design attempt 6 amendment, A-5] Replaces the preceding note. Smallest fail-safe change (STD-SAFETY-4): remove the 0.0 default at flisr.py:98; tie-loop order per design.md section 4: empty-candidate skip -> section-load check for every candidate tie, held or not (Q-DESIGN-2, FlisrError, no plan) -> DEF-FLISR-7 guard unchanged (FAULTED_SECTION) -> L precondition -> tie_capacity_verdict; per-tie precedence FAULTED_SECTION > CAPACITY_INVALID > CAPACITY_UNKNOWN > CAPACITY_STALE > CAPACITY_EXCEEDED (REQ-TIECAP-9 amended); close iff L <= C + 0.5 kW; as_of read once per call (REQ-TIECAP-20); blocked ties add only to customers_remaining, per amended REQ-TIECAP-18 (capacity-blocked: all candidate sections; FAULTED_SECTION: candidate sections other than the faulted one); one note per blocked tie (REQ-TIECAP-12; FAULTED_SECTION keeps the PR #13 note).",
       "models.py is in scope only for response fields the Design stage places on RestorationPlan (as_of, deprecations, REQ-TIECAP-14/16) and for request types; the TieCapacity/BlockedTie definitions from U2 are not to be changed.",
       "api.py: injectable server clock (spec section 4) for REQ-TIECAP-23 boundary tests; 422 before the planner runs for every malformed body (each 422 test asserts build_plan was not called); 200 with blocked_ties, never 409, for a blocked tie; OpenAPI description carries the deprecation and mutual-exclusion note (REQ-TIECAP-17).",
       "Remove only the xfail markers in test_flisr_tie_capacity_repro.py; the repro tests must then pass unmodified otherwise.",
@@ -115,7 +116,8 @@
     "scope_notes": [
       "STD-SAFETY-5: at least 500 seeded random cases over radial and branched feeders with one or more SCADA ties; capacity maps covering missing, non-GOOD, stale, boundary age, future-dated, NaN/+-inf, negative, below/at/above L + 0.5 kW; injected as_of.",
       "The seeded generator in backend/tests/rca_def_flisr_7_sweep.py (branch agent/rca-backfeed/explore, not on main) may be copied into this one file; it only places ties at the feeder tail, so the generator must also place ties elsewhere to exercise multi-tie per-tie blocking.",
-      "The invariant is about capacity gating only; it must neither assert nor exclude DEF-FLISR-7 back-feed (spec section 3). The oracle reproduces the specification's candidate-set definition, including today's pick-up semantics.",
+      "[SUPERSEDED by Design attempt 6 amendment, A-5; see the next note] The invariant is about capacity gating only; it must neither assert nor exclude DEF-FLISR-7 back-feed (spec section 3). The oracle reproduces the specification's candidate-set definition, including today's pick-up semantics.",
+      "[Design attempt 6 amendment, A-5] Replaces the preceding note. The invariant covers capacity gating and the DEF-FLISR-7 hold as amended by Q-DESIGN-3 (REQ-TIECAP-21 amended): it asserts that a tie whose pick-up set contains an endpoint of the faulted section is FAULTED_SECTION and never closed, and that an invalid candidate-section load (held tie or not) gives FlisrError and no plan. It does not test or change _isolation_switches, locate_fault or other defects adjacent to DEF-FLISR-7 (spec section 3). The oracle reproduces the specification's candidate-set definition, including today's pick-up semantics, and evaluates oracle_sections_ok -> oracle_held -> oracle_reason in that order.",
       "[Design attempt 5 amendment, A-4.2] Held ties: FAULTED_SECTION whatever the capacity; an invalid load in the pick-up set of any candidate tie, held or not, -> FlisrError, no plan (Q-DESIGN-2). REQ-TIECAP-18 amended accounting checked for both rules."
     ],
     "oracle": "QA-owned BFS of REQ-TIECAP-3 plus closed-form usability and REQ-TIECAP-9 precedence, implemented in the test file without importing app.network or app.flisr helpers; seed and case count printed in the test output for the PR evidence."
