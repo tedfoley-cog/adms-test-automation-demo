@@ -94,6 +94,17 @@ def build_plan(
         candidate_nodes = _nodes_restored_by(feeder, switch.mrid, isolated_mrids)
         if not candidate_nodes:
             continue
+        if candidate_nodes & {faulted_section.from_node, faulted_section.to_node}:
+            plan.notes.append(
+                f"{switch.name} ({switch.mrid}) held open: would back-feed faulted section "
+                f"{faulted_section.name} ({faulted_section.mrid})"
+            )
+            plan.customers_remaining += sum(
+                section.customers
+                for section in feeder.sections
+                if section.to_node in candidate_nodes and section.mrid != faulted_section.mrid
+            )
+            continue
         transferred = load_on_nodes(feeder, candidate_nodes)
         available = tie_capacity_kw.get(switch.mrid, 0.0)
         if transferred > available:
