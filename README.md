@@ -114,7 +114,7 @@ legacy/habitat/  Habitat-style EMS application: HDB schema, clone, savecase, For
 tools/           Coverage merger and legacy inventory / parity replay
 console/         Verification console (React + TypeScript + Vite)
 tests/ui/        Playwright gauntlet + UI_TEST_PLAN.md
-docs/            Implementation plan and flowchart
+docs/            Implementation plan, flowchart and operator notes (docs/flisr/)
 ```
 
 ## Key concepts
@@ -131,6 +131,12 @@ docs/            Implementation plan and flowchart
 | CIM | IEC 61970/61968 common information model — mRID, `normalOpen`, Measurement value |
 | HDB / clone / savecase | Habitat's memory-resident database, its application context, and a snapshot of it |
 | Characterization test | A test that pins existing behaviour *before* a rewrite, so parity can be proven |
+
+## Operator notes
+
+- [FLISR restoration: tie switches are held open onto a faulted section (DEF-FLISR-7)](docs/flisr/restoration-back-feed-guard.md)
+  — what `POST /flisr/plan` does when a tie would back-feed the faulted section, its
+  behaviour for missing, boundary and invalid tie capacity, and what the change does not do.
 
 > The Habitat database-definition and savecase files here are representative reconstructions
 > built from publicly documented HDB concepts and naming conventions — the exact vendor DBDEF
