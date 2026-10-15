@@ -1,8 +1,10 @@
 # Design — FLISR restoration respects tie-switch capacity
 
-Run: `feature-tie-capacity` · Stage: DESIGN · Attempt: 1 · Inputs: `specification.md` (attempt 4, complete), `units.json` (U1–U4)
+Run: `feature-tie-capacity` · Stage: DESIGN · Attempt: 2 · Inputs: `specification.md` (attempt 4, complete), `units.json` (U1–U4)
 Safety classification: **safety-critical** (STD-SAFETY-1). Protected path `backend/app/flisr.py`: two human reviewers (STD-GOV-6).
-Status: **BLOCKED on Q-DESIGN-1** (§9). Everything below is complete; only §6.3 depends on the answer.
+Status: **COMPLETE**. Q-DESIGN-1 answered (principal-engineer-standin): STD-SAFETY-6 governs the test oracle; STD-ARCH-2 applies to production consumers only. Scoped waiver recorded in §6.3. Attempt 1 was BLOCKED on Q-DESIGN-1, not returned with an Architect VIOLATION, so there are no Architect findings to address.
+
+Changes from attempt 1: §2 states which unit adds the constants (U2) and adds a test pinning them to the spec values; §3 names every production consumer of the characteristic; §4 operator notes and §5 OpenAPI text are built from the shared constants, with no repeated literals; §6.3 sets out the oracle design and the waiver; §7 updates the REQ-TIECAP-3/6/7/9/12/21/23 test strategies; §8 updates STD-ARCH-2 and STD-SAFETY-6; §9 is closed.
 
 Baseline re-measured on `main` @ 5f6b471: `pytest backend -q` → 2 passed; `ruff check backend tools` → 1 pre-existing error in `tools/` (UP017), unrelated to this change.
 
@@ -13,7 +15,7 @@ Layer map (repo contract): `ui → api → logic → models`. No lower layer imp
 | Layer | Module | Change | Imports (allowed) |
 |---|---|---|---|
 | models | `backend/app/models.py` | New: constants, `IsoAwareDatetime`, `TieCapacity`, `TieBlockReason`, `BlockedTie`. Extended: `RestorationPlan`. | pydantic, stdlib only |
-| logic | `backend/app/flisr.py` | New: `tie_capacity_verdict()` (the single capacity characteristic), `_legacy_to_tie_capacity()`, `_blocked_note()`. Changed: `build_plan()` signature and tie loop. `locate_fault`, `_isolation_switches`, `_nodes_restored_by` unchanged. | `.models`, `.network` (same layer, as today) |
+| logic | `backend/app/flisr.py` | New: `tie_capacity_verdict()` (the single capacity characteristic), `_kw_invalid()` (its kw predicate, shared with the notes), `_legacy_to_tie_capacity()`, `_blocked_note()`. Changed: `build_plan()` signature and tie loop. `locate_fault`, `_isolation_switches`, `_nodes_restored_by` unchanged. | `.models`, `.network` (same layer, as today) |
 | logic | `backend/app/network.py` | Unchanged (`load_on_nodes` keeps computing L). | `.models` |
 | api | `backend/app/api.py` | Changed: `FlisrRequest`, `flisr_plan` route; new `server_now()` dependency, `_check_as_of_bound()`. | `.flisr`, `.models`, `.network` |
 | ui | `console/**` | Unchanged (does not call `/flisr/plan`). | — |
@@ -22,10 +24,14 @@ Data flow (HTTP): JSON body → FastAPI/Pydantic request validation (`FlisrReque
 
 ## 2. Data models — `backend/app/models.py` (U2, extended in U3)
 
+U2 adds the characteristic constants, `IsoAwareDatetime`, `TieCapacity`, `TieBlockReason`, `BlockedTie` and `RestorationPlan.blocked_ties`, all additive. U3 adds only `RestorationPlan.as_of` and `RestorationPlan.deprecations` (units.json U3 scope note).
+
 Models and constants only; no plant decision logic (STD-ARCH-1). The one validator function is a type parser (it decides whether an input *is* an ISO-8601 string), not a plant decision.
 
 ```python
-# Tie-capacity characteristic parameters (single source; spec Q-SPEC-1/2/4/10/12)
+# Tie-capacity characteristic parameters: the ONE production source (STD-ARCH-1/2, Q-DESIGN-1).
+# Imported by flisr.tie_capacity_verdict, flisr._blocked_note, api._check_as_of_bound and the
+# /flisr/plan OpenAPI description. No production module restates these values (spec Q-SPEC-1/2/4/10/12).
 TIE_CAPACITY_TOLERANCE_KW: Final = 0.5
 TIE_CAPACITY_MAX_AGE = timedelta(seconds=20)        # age > 20 s  -> CAPACITY_STALE
 TIE_CAPACITY_MAX_LEAD = timedelta(seconds=2)        # age < -2 s  -> CAPACITY_INVALID
@@ -65,7 +71,16 @@ Why per-field strictness, not `ConfigDict(strict=True)`: measured on pydantic 2.
 
 ## 3. Shared characteristic — `flisr.tie_capacity_verdict` (STD-ARCH-2)
 
-One implementation of the capacity decision, used by `build_plan` and by nothing else in production:
+There is one implementation of the capacity decision. Its parameters come only from the `models.py` constants in §2. Production consumers (Q-DESIGN-1):
+
+| Consumer | Uses |
+|---|---|
+| `flisr.build_plan` tie loop (planner) | calls `tie_capacity_verdict`; no comparison of its own |
+| `flisr._blocked_note` (operator notes) | formats `TIE_CAPACITY_TOLERANCE_KW`, `TIE_CAPACITY_MAX_AGE`, `TIE_CAPACITY_MAX_LEAD`; never re-derives the reason, only formats the reason the verdict returned |
+| `api._check_as_of_bound` (endpoint) | `AS_OF_MAX_LAG`, `AS_OF_MAX_LEAD` |
+| `api` route `description` (OpenAPI) | formats the same constants into the deprecation note |
+
+No production module other than `models.py` contains the literals 0.5, 20, 2 or 60 for these purposes. A test enforces this (§6.3, check P2).
 
 ```python
 def tie_capacity_verdict(
@@ -77,7 +92,7 @@ def tie_capacity_verdict(
     20 s -> CAPACITY_STALE. Never substitutes or clamps a value."""
     if entry is None:                                          -> CAPACITY_UNKNOWN
     age = as_of - entry.timestamp                              # timedelta, exact µs
-    if not (math.isfinite(entry.kw) and entry.kw >= 0.0) or age < -TIE_CAPACITY_MAX_LEAD:
+    if _kw_invalid(entry.kw) or age < -TIE_CAPACITY_MAX_LEAD:   # _kw_invalid: not (isfinite(kw) and kw >= 0.0)
                                                                -> CAPACITY_INVALID
     if entry.quality != TIE_CAPACITY_GOOD_QUALITY:             -> CAPACITY_UNKNOWN
     if age > TIE_CAPACITY_MAX_AGE:                             -> CAPACITY_STALE
@@ -141,10 +156,12 @@ Operator notes (`_blocked_note`, REQ-TIECAP-12), one per blocked tie, naming `Sw
 
 | Reason | Note |
 |---|---|
-| CAPACITY_EXCEEDED | `"{name} blocked (CAPACITY_EXCEEDED): {L:.1f} kW to transfer exceeds {C:.1f} kW available capacity (+0.5 kW tolerance)"` |
-| CAPACITY_STALE | `"{name} blocked (CAPACITY_STALE): capacity value is {age_s:.3f} s old (limit 20 s)"` |
+| CAPACITY_EXCEEDED | `"{name} blocked (CAPACITY_EXCEEDED): {L:.1f} kW to transfer exceeds {C:.1f} kW available capacity (+{TIE_CAPACITY_TOLERANCE_KW:g} kW tolerance)"` |
+| CAPACITY_STALE | `"{name} blocked (CAPACITY_STALE): capacity value is {age_s:.3f} s old (limit {TIE_CAPACITY_MAX_AGE.total_seconds():g} s)"` |
 | CAPACITY_UNKNOWN | `"{name} blocked (CAPACITY_UNKNOWN): no capacity value"` or `"...: capacity quality {quality!r} is not GOOD"` |
-| CAPACITY_INVALID | `"{name} blocked (CAPACITY_INVALID): capacity {kw} kW is not a finite non-negative number"` or `"...: capacity timestamp is {lead_s:.3f} s ahead of as_of (limit 2 s)"` |
+| CAPACITY_INVALID | `"{name} blocked (CAPACITY_INVALID): capacity {kw} kW is not a finite non-negative number"` or `"...: capacity timestamp is {lead_s:.3f} s ahead of as_of (limit {TIE_CAPACITY_MAX_LEAD.total_seconds():g} s)"` |
+
+Rendered on the shipped model these read, for example, `+0.5 kW tolerance`, `limit 20 s`, `limit 2 s`. The limit text comes from the same constants the verdict uses, so a note can never state a limit different from the one applied. `_blocked_note` receives the reason from `tie_capacity_verdict` and does not compare anything itself. For UNKNOWN and INVALID it chooses between the two message variants with presence and type checks only (entry is None or not; which INVALID sub-condition holds). Those sub-condition checks reuse the verdict's predicates through a private helper `_kw_invalid(kw)` in `flisr.py`; they are not re-implemented.
 
 Error handling removed and its replacement in the same change (STD-ARCH-5):
 
@@ -189,7 +206,7 @@ def flisr_plan(request: FlisrRequest, now: datetime = Depends(server_now)) -> Re
 
 Prototype measurements (pydantic 2.14.1 / fastapi 0.143.1, outside the repo): `"kw":"2000"`, `true`, `null` → 422 `float_type`; timestamp `"yesterday"`, `1790000000` → 422; naive → 422 `timezone_aware`; extra field at body and `TieCapacity` level → 422 `extra_forbidden`; `"tie_capacity": null` and `"as_of": null` → 422; both maps `{}` → 422; JSON `NaN` / `-Infinity` → reaches handler (planner then CAPACITY_INVALID); `RequestValidationError` raised in the handler → standard 422 body; the response serialises a UTC `as_of` as `...Z`.
 
-OpenAPI `description` (REQ-TIECAP-17): "`tie_capacity_kw` is deprecated and will be removed one release after this one. It is mutually exclusive with `tie_capacity`; sending both returns 422. Legacy values are treated as quality GOOD with timestamp = as_of." Not `Field(deprecated=True)`: in pydantic 2.14 that emits a `DeprecationWarning` whenever the handler reads the attribute.
+OpenAPI `description` (REQ-TIECAP-17), a module-level string in `api.py` built from the `models.py` constants (for example the 0.5 kW tolerance and the 20 s / 2 s limits) so it cannot drift from them: "`tie_capacity_kw` is deprecated and will be removed one release after this one. It is mutually exclusive with `tie_capacity`; sending both returns 422. Legacy values are treated as quality GOOD with timestamp = as_of." Not `Field(deprecated=True)`: in pydantic 2.14 that emits a `DeprecationWarning` whenever the handler reads the attribute.
 
 ## 6. Test strategy
 
@@ -210,9 +227,31 @@ OpenAPI `description` (REQ-TIECAP-17): "`tie_capacity_kw` is deprecated and will
 
 C = 1490.0 close · 1489.5 close · 1489.4 EXCEEDED · age 19.999 / 20.000 s fresh, 20.001 s STALE · age −1.999 / −2.000 s fresh, −2.001 s INVALID · server clock fixed: as_of −60.000 s / +2.000 s accepted, −60.001 s / +2.001 s 422.
 
-### 6.3 Oracle (depends on Q-DESIGN-1)
+### 6.3 Oracle and the scoped STD-ARCH-2 waiver (Q-DESIGN-1)
 
-Spec §4 / STD-SAFETY-6: an independent oracle in the test files that does not import `app.network` or `app.flisr` helpers: its own BFS for the candidate node set and L, closed-form `L <= C + 0.5`, `age > 20 s`, `age < −2 s`, `quality == "GOOD"`, `isfinite(kw) and kw >= 0`, and the precedence function. Proposed (pending Q-DESIGN-1): oracle literals come from the specification, not from `models.py`, and one test asserts `models.TIE_CAPACITY_*` / `AS_OF_*` equal the specified values, so a wrong constant fails a test instead of moving the oracle with it.
+**Waiver (explicit and scoped).** STD-ARCH-2 says one shared implementation of a numerically sensitive characteristic is used by every consumer, test oracle included, and calls duplicates a VIOLATION. STD-SAFETY-6 requires operate boundaries to be checked against an *independent* closed-form oracle. Per Q-DESIGN-1 (principal-engineer-standin), **STD-SAFETY-6 governs the test oracle** and **STD-ARCH-2 applies to production consumers only** (planner, endpoint, notes; §3). Scope of the waiver:
+
+- Covers only the QA oracle functions in `backend/tests/test_flisr_tie_capacity_planner.py`, `test_flisr_tie_capacity_api.py` and `test_flisr_tie_capacity_invariant.py`, which restate the closed forms below.
+- Does not cover any module under `backend/app/`. A second production implementation of the characteristic, or a restated production literal, is still a STD-ARCH-2 VIOLATION.
+- The U3 and U4 oracles are separate restatements: units.json says U4's oracle is "implemented in the test file". Both use the literals from the specification. Under the waiver this is intended: more diversity, no shared defect.
+
+**Oracle content.** The oracle lives under `backend/tests`. It does not import `app.flisr` or `app.network` and does not use the `models.py` threshold constants (Q-DESIGN-1: "must not import app.flisr or share its threshold code"). It may read `app.models` data types (`Feeder`, `Section`, `Switch`, `TieCapacity`) as plain data. Functions are named `oracle_*`:
+
+| Oracle function | Closed form (literals from the specification) |
+|---|---|
+| `oracle_candidate_nodes(feeder, tie_mrid, opened)` | its own BFS over the test topology: nodes reachable from the tie's `from_node` with isolation switches open and the tie closed, minus nodes reachable from `source_node` (spec "Candidate tie" definition) |
+| `oracle_load_kw(feeder, nodes)` / `oracle_customers(...)` | Σ `load_kw` / `customers` of sections whose `to_node` ∈ nodes |
+| `oracle_reason(entry, L, as_of)` | `None` → UNKNOWN; `not (isfinite(kw) and kw >= 0) or age < timedelta(seconds=-2)` → INVALID; `quality != "GOOD"` → UNKNOWN; `age > timedelta(seconds=20)` → STALE; `L <= kw + 0.5` → close; else EXCEEDED (REQ-TIECAP-9 precedence) |
+| `oracle_as_of_ok(as_of, now)` (API test) | `now - as_of <= timedelta(seconds=60) and as_of - now <= timedelta(seconds=2)` |
+
+Tolerance: 0.5 kW in engineering units. Per-unit statement waived by Q-SPEC-4; the PR records this waiver against STD-SAFETY-6.
+
+**Checks that keep the oracle independent and the production source single** (all in the U2/U3/U4 files already listed in units.json; no new files):
+
+- **O1 — oracle independence** (planner, API and invariant test files): an `ast` check of the test module asserts that no `oracle_*` function refers to a name bound by `from app.flisr …`, `from app.network …`, `import app.flisr` / `app.network`, or to a `models.TIE_CAPACITY_*` / `models.AS_OF_*` constant. The module may import `build_plan` / the app as the subject under test; only the oracle functions are constrained.
+- **P1 — constant pin** (U2, `test_flisr_tie_capacity_models.py`): asserts `TIE_CAPACITY_TOLERANCE_KW == 0.5`, `TIE_CAPACITY_MAX_AGE == timedelta(seconds=20)`, `TIE_CAPACITY_MAX_LEAD == timedelta(seconds=2)`, `AS_OF_MAX_LAG == timedelta(seconds=60)`, `AS_OF_MAX_LEAD == timedelta(seconds=2)`, `TIE_CAPACITY_GOOD_QUALITY == "GOOD"`, using spec literals. A wrong constant then fails a test; the oracle does not move with it.
+- **P2 — no restated production literal** (U3, planner test): an `ast` check of `tie_capacity_verdict`, `_kw_invalid`, `_blocked_note` (from `app/flisr.py` source) and `_check_as_of_bound` plus the route description builder (from `app/api.py` source) asserts no numeric constant other than `0` / `0.0` and no `timedelta(...)` call. This mechanically enforces §3's single production source.
+- **Oracle self-check** (planner test): the oracle reproduces the §6.2 hand-computed shipped-model values (L = 1490.0 kW, 341 customers, the boundary verdicts) before it is used against `build_plan`.
 
 ## 7. Requirement → component → test (STD-ARCH-6)
 
@@ -220,16 +259,16 @@ Spec §4 / STD-SAFETY-6: an independent oracle in the test files that does not i
 |---|---|---|
 | REQ-TIECAP-1 | `models.TieCapacity`, `IsoAwareDatetime` | U2 models test, both JSON and TestClient paths |
 | REQ-TIECAP-2 | `flisr.build_plan` signature, `as_of` resolution | planner test: UTC vs `+02:00` identical plan; naive → `ValueError`; None → UTC now |
-| REQ-TIECAP-3 | `flisr.tie_capacity_verdict` (close branch) | planner boundaries §6.2 vs oracle §6.3 |
+| REQ-TIECAP-3 | `flisr.tie_capacity_verdict` (close branch); constants `models.TIE_CAPACITY_TOLERANCE_KW` | planner boundaries §6.2 vs independent `oracle_reason` / `oracle_candidate_nodes` / `oracle_load_kw` (§6.3); O1, P1, P2 |
 | REQ-TIECAP-4 | `tie_capacity_verdict` → EXCEEDED; tie loop | planner test 1489.4; oracle |
 | REQ-TIECAP-5 | `tie_capacity_verdict` (None / non-GOOD); loop with no default | planner: missing key, None, `{}`, `"BAD"`, `"SUSPECT"`, `"good"`, `""`; inspection of `flisr.py` (no `0.0` default); U1 repro (a) |
-| REQ-TIECAP-6 | `tie_capacity_verdict` (`age > MAX_AGE`) | planner ages 19.999 / 20.000 / 20.001 s |
-| REQ-TIECAP-7 | `tie_capacity_verdict` (`age < -MAX_LEAD`) | planner ages −1.999 / −2.000 / −2.001 s |
+| REQ-TIECAP-6 | `tie_capacity_verdict` (`age > TIE_CAPACITY_MAX_AGE`) | planner ages 19.999 / 20.000 / 20.001 s vs `oracle_reason`; P1 |
+| REQ-TIECAP-7 | `tie_capacity_verdict` (`age < -TIE_CAPACITY_MAX_LEAD`) | planner ages −1.999 / −2.000 / −2.001 s vs `oracle_reason`; P1 |
 | REQ-TIECAP-8 | `tie_capacity_verdict` (finite, ≥ 0) | planner NaN, ±inf, −1.0, 0.0, −0.0; API raw JSON `NaN`/`Infinity`/`-Infinity`/`-1` → 200 INVALID; U1 repro (b) |
-| REQ-TIECAP-9 | `tie_capacity_verdict` statement order; `TieBlockReason` order | planner: every combination vs oracle precedence function |
+| REQ-TIECAP-9 | `tie_capacity_verdict` statement order; `TieBlockReason` order | planner: every combination of {invalid kw, future > 2 s, non-GOOD, stale, exceeded} vs `oracle_reason` |
 | REQ-TIECAP-10 | tie loop (per-tie, isolation untouched) | planner two-tie generated topology |
 | REQ-TIECAP-11 | `models.BlockedTie`, `TieBlockReason`, `RestorationPlan.blocked_ties` | U2 schema test; planner content and order |
-| REQ-TIECAP-12 | `flisr._blocked_note` | planner: note per reason, L/C at 0.1 kW, age |
+| REQ-TIECAP-12 | `flisr._blocked_note` (limits formatted from `models.py` constants) | planner: note per reason, L/C at 0.1 kW, age; P2 (no literal limits in the note code) |
 | REQ-TIECAP-13 | `api.FlisrRequest`, `flisr_plan` | API: 422 list in spec, each asserting planner not called; blocked tie → 200 |
 | REQ-TIECAP-14 | `RestorationPlan.as_of`; `build_plan` UTC normalisation; `flisr_plan` as_of resolution | API: `+01:00` echoed as `22:00:00Z`; absent → instant within send/receive window (parsed comparison) |
 | REQ-TIECAP-15 | `FlisrRequest._mutually_exclusive`; `build_plan` ValueError | API both present (incl. `{}`) → 422; planner both → ValueError |
@@ -238,16 +277,16 @@ Spec §4 / STD-SAFETY-6: an independent oracle in the test files that does not i
 | REQ-TIECAP-18 | tie loop accounting | planner vs oracle sums |
 | REQ-TIECAP-19 | `build_plan` no-fault early return | U1 characterization (unchanged after U2/U3) |
 | REQ-TIECAP-20 | `build_plan` reads clock once at entry | planner: monkeypatched clock counts one read; inspection |
-| REQ-TIECAP-21 | `tie_capacity_verdict` + tie loop | U4 invariant ≥ 500 seeded cases, generator places ties at any node (not tail-only) |
+| REQ-TIECAP-21 | `tie_capacity_verdict` + tie loop | U4 invariant ≥ 500 seeded cases, generator places ties at any node (not tail-only); oracle restated in the invariant file (§6.3 waiver), O1 |
 | REQ-TIECAP-22 | unchanged isolation/restoration code paths | U1 characterization pinned on `main` @ 5f6b471 |
-| REQ-TIECAP-23 | `api.server_now`, `_check_as_of_bound`, `IsoAwareDatetime` | API with overridden clock: §6.2 bounds, naive, `"yesterday"`, `1790000000` → 422 |
+| REQ-TIECAP-23 | `api.server_now`, `_check_as_of_bound` (`models.AS_OF_MAX_LAG` / `AS_OF_MAX_LEAD`), `IsoAwareDatetime` | API with overridden clock: §6.2 bounds vs `oracle_as_of_ok`, naive, `"yesterday"`, `1790000000` → 422, planner not called; O1, P1, P2 |
 
 No requirement is unmapped.
 
 ## 8. Standards check (verify)
 
 - STD-ARCH-1: constants and types in `models.py`; decision logic in `flisr.py`; request DTO in `api.py` (API layer).
-- STD-ARCH-2: one capacity characteristic (`tie_capacity_verdict`) with parameters single-sourced in `models.py`. Test-oracle clause: see Q-DESIGN-1.
+- STD-ARCH-2: one production capacity characteristic (`tie_capacity_verdict`); parameters single-sourced in `models.py` and imported by every production consumer (planner, notes, endpoint, OpenAPI text; §3), enforced by P2. Test oracle: scoped waiver per Q-DESIGN-1 (§6.3).
 - STD-ARCH-3: `models` imports nothing from the app; `flisr` imports `models`/`network`; `api` imports `flisr`/`models`/`network`. No upward import.
 - STD-ARCH-4: §3 docstring and §4 table cover absent, stale and out-of-range for every new or changed public function; default is refuse/hold the tie.
 - STD-ARCH-5: §4 removed-guard table.
@@ -255,14 +294,13 @@ No requirement is unmapped.
 - STD-ARCH-7: this design is handed to the Architect unchanged; Architect does not edit it.
 - STD-ARCH-8: no IEC 61850 logical nodes or data objects are added; `blocked_ties` is internal to the planner API.
 - STD-SAFETY-2/3/4/5: U1 before production edits, repro xfail, smallest fail-safe change (§4), invariant ≥ 500 (U4).
-- STD-SAFETY-6: tolerance 0.5 kW engineering units; per-unit waived by Q-SPEC-4 (record against STD-SAFETY-6 in the PR).
+- STD-SAFETY-6: independent closed-form oracle under `backend/tests`, not importing `app.flisr` / `app.network` or the threshold constants (O1); boundaries §6.2; tolerance 0.5 kW engineering units; per-unit waived by Q-SPEC-4 (record against STD-SAFETY-6 in the PR).
 - STD-SAFETY-7: no tool-certification credit claimed; tool classification left to the assessor.
 - STD-SAFETY-8: no production systems, secrets or field devices used; prototype ran locally against synthetic bodies.
 - STD-GOV-1/2: branch `agent/feature-tie-capacity/design`, trailer on the commit. STD-GOV-7: the platform appends a `Co-Authored-By` trailer carrying a personal name to agent commits; the agent cannot change the commit identity, so this is reported as a compliance note.
 
-## 9. Open question
+## 9. Open questions
 
-- **Q-DESIGN-1** — STD-ARCH-2 requires one shared implementation of a threshold characteristic "used by every consumer (firmware, setting tool, test oracle)" and calls duplicates a VIOLATION. STD-SAFETY-6 and specification §4 / REQ-TIECAP-3 require an *independent* closed-form oracle that does not import `app.flisr` helpers, which means restating `L <= C + 0.5`, `age > 20 s`, `age < −2 s` and the precedence in the test. Both cannot hold literally for the test oracle. Which governs here?
-  - (a) STD-SAFETY-6: the QA oracle restates the closed form with literals from the specification, plus a test pinning the `models.py` constants to those values; STD-ARCH-2 applies to production consumers only (proposed, §6.3).
-  - (b) STD-ARCH-2: tests call `flisr.tie_capacity_verdict`; independence comes only from hand-computed boundary expectations (§6.2), and the spec's oracle clause is amended.
-  - (c) Middle: the oracle imports only the constants from `models.py` but restates the comparison and precedence.
+None. Resolved:
+
+- **Q-DESIGN-1** (principal-engineer-standin) → §3, §6.3, §7, §8. STD-SAFETY-6 governs the test oracle, which is independent, lives under `backend/tests` and imports neither `app.flisr` nor the threshold code. STD-ARCH-2 governs production consumers only: tolerance, max age and max lead (plus the as_of bounds) live in `models.py`, and the planner, notes and endpoint import them. The waiver is scoped and recorded in §6.3.
