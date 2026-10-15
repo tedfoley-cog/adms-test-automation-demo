@@ -23,3 +23,32 @@ def test_def_flisr_7_tie_does_not_back_feed_faulted_tail_section():
         f"plan re-energises {faulted.mrid}: "
         f"restoration={[(s.switch_mrid, s.action) for s in plan.restoration]}"
     )
+
+
+def test_def_flisr_7_post_flisr_plan_closes_tie_onto_faulted_section(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import api
+
+    network = load_network()
+    feeder = get_feeder(network, "FDR-1201")
+    for section in feeder.sections:
+        section.fault_indicator = section.mrid != "SEC-1201-04"
+    switch_by_mrid(feeder, "CB-1201").open = True
+    monkeypatch.setattr(api, "load_network", lambda: network)
+
+    response = TestClient(api.app).post(
+        "/flisr/plan",
+        json={
+            "feeder_mrid": "FDR-1201",
+            "lockout_switch_mrid": "CB-1201",
+            "tie_capacity_kw": {"TIE-1201-1405": 2000.0},
+        },
+    )
+
+    assert response.status_code == 200
+    plan = response.json()
+    assert plan["faulted_section"] == "SEC-1201-04"
+    assert ("TIE-1201-1405", "close") not in [
+        (step["switch_mrid"], step["action"]) for step in plan["restoration"]
+    ], f"POST /flisr/plan closes TIE-1201-1405 onto SEC-1201-04: {plan}"
