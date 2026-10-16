@@ -90,8 +90,9 @@ def test_def_flisr_7_plan_holds_tie_open_and_counts_faulted_customers_once():
 
     plan = build_plan(feeder, "CB-1201", tie_capacity_kw={"TIE-1201-1405": 2000.0})
 
-    # REQ-TIECAP-11 (U2): blocked_ties is asserted in the test below; every other field as pinned.
-    assert plan.model_dump(exclude={"blocked_ties"}) == {
+    # REQ-TIECAP-11/14/16 (U2, U3): blocked_ties is asserted in the test below; as_of and
+    # deprecations are new response fields; every other field as pinned.
+    assert plan.model_dump(exclude={"as_of", "blocked_ties", "deprecations"}) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": "SEC-1201-04",
         "isolation": [
@@ -110,10 +111,6 @@ def test_def_flisr_7_plan_holds_tie_open_and_counts_faulted_customers_once():
 
 
 @pytest.mark.requirement("REQ-TIECAP-11")
-@pytest.mark.xfail(
-    strict=True,
-    reason="REPRO REQ-TIECAP-11 (Q-DESIGN-3): build_plan does not yet report the held tie; U3",
-)
 def test_req_tiecap_11_held_tie_reported_as_faulted_section():
     _, feeder = cedar_ridge_faulted_on_sec_1201_04()
 
@@ -128,6 +125,9 @@ def test_def_flisr_7_short_tie_capacity_still_counts_faulted_customers_once():
 
     plan = build_plan(feeder, "CB-1201", tie_capacity_kw={"TIE-1201-1405": 1000.0})
 
+    assert plan.model_dump(mode="json")["blocked_ties"] == [
+        {"tie_id": "TIE-1201-1405", "reason": "FAULTED_SECTION"}
+    ]
     assert [(s.switch_mrid, s.action) for s in plan.restoration] == [("CB-1201", "close")]
     assert plan.customers_restored == 0
     assert plan.customers_remaining == 341
@@ -143,6 +143,9 @@ def test_def_flisr_7_tie_refused_when_pick_up_reaches_unisolated_faulted_section
     plan = build_plan(feeder, "CB-1201", tie_capacity_kw={"TIE-1201-1405": 2000.0})
 
     assert plan.faulted_section == "SEC-1201-03"
+    assert plan.model_dump(mode="json")["blocked_ties"] == [
+        {"tie_id": "TIE-1201-1405", "reason": "FAULTED_SECTION"}
+    ]
     assert [(s.switch_mrid, s.action) for s in plan.isolation] == [("SEC-SW-1201-1", "open")]
     assert [(s.switch_mrid, s.action) for s in plan.restoration] == [("CB-1201", "close")]
     assert plan.customers_restored == 0

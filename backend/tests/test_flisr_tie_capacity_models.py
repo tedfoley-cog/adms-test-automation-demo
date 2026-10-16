@@ -264,8 +264,8 @@ def test_req_tiecap_11_blocked_tie_requires_both_fields():
 
 @pytest.mark.requirement("REQ-TIECAP-11")
 def test_req_tiecap_11_restoration_plan_blocked_ties_defaults_empty():
-    first = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None)
-    second = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None)
+    first = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None, as_of=GOOD_TS_INSTANT)
+    second = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None, as_of=GOOD_TS_INSTANT)
     assert first.blocked_ties == []
     first.blocked_ties.append(BlockedTie(tie_id="TIE-1201-1405", reason="CAPACITY_STALE"))
     assert second.blocked_ties == []
@@ -276,6 +276,7 @@ def test_req_tiecap_11_restoration_plan_carries_blocked_ties_in_order():
     plan = RestorationPlan(
         feeder_mrid="FDR-1201",
         faulted_section="SEC-1201-03",
+        as_of=GOOD_TS_INSTANT,
         blocked_ties=[
             {"tie_id": "TIE-A", "reason": "FAULTED_SECTION"},
             {"tie_id": "TIE-B", "reason": "CAPACITY_EXCEEDED"},
@@ -290,9 +291,11 @@ def test_req_tiecap_11_restoration_plan_carries_blocked_ties_in_order():
 @pytest.mark.requirement("REQ-TIECAP-11")
 def test_req_tiecap_11_restoration_plan_existing_fields_unchanged():
     # Additive only: the pre-existing fields and defaults are as on the base @ 20d2a30.
-    plan = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None)
+    # U3 adds the required as_of and deprecations (REQ-TIECAP-14/16); excluded like blocked_ties.
+    plan = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None, as_of=GOOD_TS_INSTANT)
     dumped = plan.model_dump()
-    assert {k: v for k, v in dumped.items() if k != "blocked_ties"} == {
+    new_fields = {"as_of", "blocked_ties", "deprecations"}
+    assert {k: v for k, v in dumped.items() if k not in new_fields} == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": None,
         "isolation": [],

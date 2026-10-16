@@ -13,8 +13,9 @@ from app.network import get_feeder, load_network, switch_by_mrid
 pytestmark = [pytest.mark.characterization, pytest.mark.requirement("DEF-FLISR-7")]
 
 TIE_2000 = {"TIE-1201-1405": 2000.0}
-# REQ-TIECAP-11 (U2): blocked_ties is compared on its own, every other field as pinned.
-NEW_FIELDS = {"blocked_ties"}
+# REQ-TIECAP-11/14/16 (U2, U3): blocked_ties is compared on its own; as_of and deprecations are
+# new response fields; every other field as pinned.
+NEW_FIELDS = {"as_of", "blocked_ties", "deprecations"}
 
 
 def cedar_ridge_in_lockout(indicated: set[str] | None = None):
@@ -85,7 +86,9 @@ def test_def_flisr_7_char_fault_sec_1201_03_tie_capacity_short():
         cedar_ridge_in_lockout(), "CB-1201", tie_capacity_kw={"TIE-1201-1405": 1000.0}
     )
 
-    assert plan.blocked_ties == []
+    assert plan.model_dump(mode="json")["blocked_ties"] == [
+        {"tie_id": "TIE-1201-1405", "reason": "CAPACITY_EXCEEDED"}
+    ]
     assert plan.model_dump(exclude=NEW_FIELDS) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": "SEC-1201-03",
@@ -102,7 +105,11 @@ def test_def_flisr_7_char_fault_sec_1201_03_tie_capacity_short():
         "customers_restored": 0,
         "customers_remaining": 437,
         "transferred_load_kw": 0.0,
-        "notes": ["Hollow Creek tie to 1405 skipped: 1490 kW exceeds 1000 kW available capacity"],
+        # REQ-TIECAP-12 replaces the old skip note on purpose (design 6.1 rule 3).
+        "notes": [
+            "Hollow Creek tie to 1405 blocked (CAPACITY_EXCEEDED): 1490.0 kW to transfer "
+            "exceeds 1000.0 kW available capacity (+0.5 kW tolerance)"
+        ],
     }
 
 
