@@ -1,12 +1,16 @@
 # Design — FLISR restoration respects tie-switch capacity
 
-Run: `feature-tie-capacity` · Stage: DESIGN · Attempt: 5 · Inputs: `specification.md` (attempt 4, complete; REQ-TIECAP-9/11/18/21/22 amended by the Design stage, §9), `units.json` (U1–U4, amended by the Design stage, §11), `architecture-review.md` (Architect attempt 2, VIOLATION, on `agent/feature-tie-capacity/architect` @ b897964), Q-DESIGN-1..3 answers (principal-engineer-standin)
+Run: `feature-tie-capacity` · Stage: DESIGN · Attempt: 6 · Inputs: `specification.md` (attempt 4, complete; REQ-TIECAP-9/11/18/21/22 amended by the Design stage, §9), `units.json` (U1–U4, amended by the Design stage, §11), `architecture-review.md` (Architect attempt 3, VIOLATION, on `agent/feature-tie-capacity/architect` @ e2339d5; attempt 2 @ b897964), Q-DESIGN-1..3 answers (principal-engineer-standin)
 Safety classification: **safety-critical** (STD-SAFETY-1). Protected path `backend/app/flisr.py`: two human reviewers (STD-GOV-6).
-Status: **complete, no open questions** (§9). Architect attempt-2 findings A-2, A-3, A-4 resolved (§10.2).
+Status: **complete, no open questions** (§9). Architect attempt-3 finding A-5 resolved (§10.3); attempt-2 findings A-2, A-3, A-4 resolved (§10.2).
 
 **Base revision (A-4.1, STD-SAFETY-2).** The characterization base is **`agent/rca-backfeed/fix` @ `20d2a303c9548f9f7170cb3dfef1487fb7e9a009`** (draft PR #13, the change Q-DESIGN-3 names), *not* PR #14. Concretely: the `backend/` tree of 20d2a30 (production code = `backend/app/` @ 20d2a30; DEF-FLISR-7 tests = `test_flisr_characterization.py`, `test_flisr_def_flisr_7.py`, `conftest.py` @ 20d2a30; 13 tests). U1 pins its characterization values on that tree. Before writing any code, the Coding stage checks `git diff 20d2a30 <branch point> -- backend/` is empty; if not (for example PR #14's `test_flisr_def_flisr_7_qa.py` is on `main`, or PR #13 changed), it stops and returns the run to Design (base drift). PR #14 (`agent/rca-backfeed/integration` @ 44d9031, which contains 20d2a30 unchanged plus `test_flisr_def_flisr_7_qa.py`, `docs/flisr/restoration-back-feed-guard.md` and a README link) is **not** part of the base: `git diff 20d2a30 44d9031 -- backend/app/` is empty, so the production behaviour is identical, but its QA test file is outside the base and outside every unit's file list.
 
-Changes from attempt 4:
+Changes from attempt 5 (Architect attempt 3, A-5; no new scope, no new question):
+- **A-5(a) (STD-ARCH-4, STD-GOV-3).** The §4 tie-loop pseudocode is reordered to match the §4 table, the §4 "Integration with DEF-FLISR-7" paragraph and units.json U3: empty-candidate skip → **section-load check for every candidate tie (held or not, Q-DESIGN-2 → `FlisrError`)** → DEF-FLISR-7 guard (→ FAULTED_SECTION, `continue`) → L precondition → `tie_capacity_verdict`. The guard's `continue` now comes after the section-load check and before L and capacity evaluation only. The same order is now stated in §7 (REQ-TIECAP-9 row), §8 (STD-ARCH-5), §9 (Q-DESIGN-3) and §10.1 (O-2). There is one stated behaviour for a held tie with an invalid pick-up load: `FlisrError`, no plan. Measured with a prototype on the base (§10.3).
+- **A-5(b) (STD-ARCH-6).** `units.json`: the original U3 note "per-tie usability with precedence INVALID > UNKNOWN > STALE > EXCEEDED" and the original U4 note "must neither assert nor exclude DEF-FLISR-7 back-feed" are marked `[SUPERSEDED by Design attempt 6 amendment, A-5]` and each is followed by its `[Design attempt 6 amendment, A-5]` replacement. The stale "unmodified main" wording in U1's title and oracle is amended to the 20d2a30 base the same way (§11).
+
+Changes in attempt 5 (from attempt 4):
 - **A-2 (STD-ARCH-6).** REQ-TIECAP-18 amended (Q-DESIGN-3, "the guard's behaviour must not change"): a FAULTED_SECTION tie adds the customers of its candidate sections **other than the faulted section** (the faulted section is already counted once). Measured 341 on the base. §4, §7, §9, spec.
 - **A-3 (STD-GOV-3, STD-ARCH-4).** Conform to Q-DESIGN-2 as written; the held-tie carve-out is removed. The section-load check now covers **every** candidate tie, including one the guard would hold, and runs **before** the guard. A NaN/±inf/negative load anywhere in any candidate tie's pick-up set refuses the plan (`FlisrError`, 409, lockout stays open). REQ-TIECAP-21 keeps only the Q-DESIGN-3 amendment; the Q-DESIGN-2 clause added in attempt 4 is removed, as Q-DESIGN-2 says REQ-TIECAP-21 needs no change. The refusal is recorded as a stated precondition (§4). Why this does not change the guard's behaviour (Q-DESIGN-3): §4.
 - **A-4.1 (STD-SAFETY-2).** One base revision, named by SHA (above). The "19 of 38" claim is corrected: re-measured, 5 of the 13 tests at the base fail with the prototype (§6.1). REQ-TIECAP-22 amended to the SHA.
@@ -175,17 +179,18 @@ Behaviour for absent / stale / out-of-range inputs (STD-ARCH-4), in docstring fo
 
 Why `ValueError` and not `FlisrError`: `FlisrError` means "the network state does not allow a defensible plan" and maps to HTTP 409. Naive `as_of` and both-maps are caller contract violations that HTTP validation already rejects with 422, so they never reach `build_plan` from `api.py`; a direct Python caller gets an exception and no plan either way.
 
-Tie loop (replaces `flisr.py:92-121`; isolation, lockout re-close and `_nodes_restored_by` untouched, REQ-TIECAP-10):
+Tie loop (replaces `flisr.py:92-121`; isolation, lockout re-close and `_nodes_restored_by` untouched, REQ-TIECAP-10). This pseudocode is normative for Coding; its statement order is the order stated in the input table above and in "Integration with DEF-FLISR-7" below (A-5):
 
 ```text
 for switch in feeder.switches:                 # order => blocked_ties order (REQ-TIECAP-11)
     skip silently if not tie / not SCADA / empty candidate set     # as today
+    for sec in sections with to_node ∈ candidate_nodes:              # every candidate tie, held or not
+        if _not_finite_nonneg(sec.load_kw): raise FlisrError(...)    # Q-DESIGN-2: whole plan refused, before the guard
     if candidate_nodes & {faulted.from_node, faulted.to_node}:     # DEF-FLISR-7 guard, PR #13, kept as is
         notes.append(<PR #13 hold-open note>)                         # unchanged text
         blocked_ties.append(BlockedTie(tie_id=switch.mrid, reason=FAULTED_SECTION))   # added (Q-DESIGN-3)
-        continue                                                      # before any load or capacity evaluation
-    for sec in sections with to_node ∈ candidate_nodes:
-        if _not_finite_nonneg(sec.load_kw): raise FlisrError(...)    # Q-DESIGN-2: whole plan refused
+        customers_remaining += <PR #13 accounting, unchanged>          # REQ-TIECAP-18 as amended
+        continue                                                      # after the section-load check; before L and capacity evaluation
     L = load_on_nodes(feeder, candidate_nodes)                        # plain sum (REQ-TIECAP-3)
     if _not_finite_nonneg(L): raise FlisrError(...)               # A-1: overflow only, defence in depth
     customers = Σ customers of sections whose to_node ∈ candidate_nodes
@@ -297,7 +302,7 @@ C = 1490.0 close · 1489.5 close · 1489.4 EXCEEDED · age 19.999 / 20.000 s fre
 |---|---|
 | `oracle_candidate_nodes(feeder, tie_mrid, opened)` | its own BFS over the test topology: nodes reachable from the tie's `from_node` with isolation switches open and the tie closed, minus nodes reachable from `source_node` (spec "Candidate tie" definition) |
 | `oracle_load_kw(feeder, nodes)` / `oracle_customers(...)` | Σ `load_kw` / `customers` of sections whose `to_node` ∈ nodes |
-| `oracle_held(feeder, nodes, faulted_mrid)` | `nodes & {faulted.from_node, faulted.to_node}` is non-empty (restates the DEF-FLISR-7 rule from the spec, not PR #13's code); True ⇒ expect `FAULTED_SECTION` before anything else |
+| `oracle_held(feeder, nodes, faulted_mrid)` | `nodes & {faulted.from_node, faulted.to_node}` is non-empty (restates the DEF-FLISR-7 rule from the spec, not PR #13's code); True ⇒ expect `FAULTED_SECTION` ahead of every capacity reason (checked after `oracle_sections_ok`) |
 | `oracle_sections_ok(feeder, nodes)` | every section with `to_node` ∈ nodes has `isfinite(load_kw) and load_kw >= 0`; False for **any** candidate tie, held or not ⇒ expect `FlisrError` (checked before `oracle_held`) |
 | `oracle_l_in_range(L)` | `isfinite(L) and L >= 0` (spec §0 range); False ⇒ expect `FlisrError` |
 | `oracle_reason(entry, L, as_of)` | `None` → UNKNOWN; `not (isfinite(kw) and kw >= 0) or age < timedelta(seconds=-2)` → INVALID; `quality != "GOOD"` → UNKNOWN; `age > timedelta(seconds=20)` → STALE; `L <= kw + 0.5` → close; else EXCEEDED. Called only after `oracle_sections_ok` is True and `oracle_held` is False (REQ-TIECAP-9 amended precedence) |
@@ -324,7 +329,7 @@ Tolerance: 0.5 kW in engineering units. Per-unit statement waived by Q-SPEC-4; t
 | REQ-TIECAP-6 | `tie_capacity_verdict` (`age > TIE_CAPACITY_MAX_AGE`) | planner ages 19.999 / 20.000 / 20.001 s vs `oracle_reason`; P1 |
 | REQ-TIECAP-7 | `tie_capacity_verdict` (`age < -TIE_CAPACITY_MAX_LEAD`) | planner ages −1.999 / −2.000 / −2.001 s vs `oracle_reason`; P1 |
 | REQ-TIECAP-8 | `tie_capacity_verdict` (finite, ≥ 0) | planner NaN, ±inf, −1.0, 0.0, −0.0; API raw JSON `NaN`/`Infinity`/`-Infinity`/`-1` → 200 INVALID; U1 repro (b) |
-| REQ-TIECAP-9 (amended, Q-DESIGN-3) | loop order: guard → section check → `tie_capacity_verdict` statement order; `TieBlockReason` declaration order | planner: every combination of {held by guard, invalid kw, future > 2 s, non-GOOD, stale, exceeded} vs `oracle_held` + `oracle_reason`; held + any capacity state → FAULTED_SECTION |
+| REQ-TIECAP-9 (amended, Q-DESIGN-3) | tie-loop order (§4): section-load check for every candidate tie (Q-DESIGN-2, plan-level `FlisrError`, not a per-tie reason) → DEF-FLISR-7 guard (FAULTED_SECTION) → L precondition → `tie_capacity_verdict` statement order (INVALID > UNKNOWN > STALE > EXCEEDED); `TieBlockReason` declaration order | planner: every combination of {held by guard, invalid kw, future > 2 s, non-GOOD, stale, exceeded} vs `oracle_sections_ok` → `oracle_held` → `oracle_reason`, in that order; held + any capacity state, valid loads → FAULTED_SECTION; held + invalid pick-up load → `FlisrError`, no plan |
 | REQ-TIECAP-10 | tie loop (per-tie, isolation untouched) | planner two-tie generated topology |
 | REQ-TIECAP-11 (amended, Q-DESIGN-3) | `models.BlockedTie`, `TieBlockReason` (5 members), `RestorationPlan.blocked_ties`; guard branch appends FAULTED_SECTION | U2 schema test (enum = 5 values in order); planner content and order, two-tie mixed topology |
 | REQ-TIECAP-12 | `flisr._blocked_note` (limits formatted from `models.py` constants); PR #13 guard note for FAULTED_SECTION | planner: one note per reason, L/C to 0.1 kW, age; held tie: the PR #13 note exactly once; P2 (no literal limits in the note code) |
@@ -348,7 +353,7 @@ No requirement is unmapped.
 - STD-ARCH-2: one production capacity characteristic (`tie_capacity_verdict`); parameters single-sourced in `models.py` and imported by every production consumer (planner, notes, endpoint, OpenAPI text; §3), enforced by P2. Test oracle: scoped waiver per Q-DESIGN-1 (§6.3).
 - STD-ARCH-3: `models` imports nothing from the app; `flisr` imports `models`/`network`; `api` imports `flisr`/`models`/`network`. No upward import.
 - STD-ARCH-4: the §3 docstring states the preconditions and decisions of `tie_capacity_verdict` for every input: `entry` absent, wrong type, naive timestamp, non-finite, negative or non-real `kw`, stale, future-dated, non-GOOD; `transferred_kw` NaN, ±inf or negative; `as_of` naive or non-datetime. The §4 table does the same for `build_plan`: both maps, naive or absent `as_of`, legacy, wrong-type values, out-of-range L, non-candidate entries, lockout, no fault. §5 does the same for the endpoint. Fail-safe in every row: refuse the plan (raise), or block the tie. Nothing is closed on a guessed or out-of-range value. A NaN, ±inf or negative load in the pick-up set of any candidate tie, held or not, refuses the plan (Q-DESIGN-2 as written). A tie the DEF-FLISR-7 guard holds is reported as FAULTED_SECTION (Q-DESIGN-3). No input is left undecided.
-- STD-ARCH-5: §4 removed-guard table. The DEF-FLISR-7 guard from PR #13 is kept unchanged and runs first in the loop (§4); the only edit in its branch adds the `blocked_ties` entry. PR #13 tests are edited only under the §6.1 rule.
+- STD-ARCH-5: §4 removed-guard table. The DEF-FLISR-7 guard from PR #13 is kept unchanged. In the loop it runs after the empty-candidate skip and the Q-DESIGN-2 section-load check, and before L and capacity evaluation (§4); the only edit in its branch adds the `blocked_ties` entry. PR #13 tests are edited only under the §6.1 rule.
 - STD-ARCH-6: §7.
 - STD-ARCH-7: this design is handed to the Architect unchanged; Architect does not edit it.
 - STD-ARCH-8: no IEC 61850 logical nodes or data objects are added; `blocked_ties` is internal to the planner API.
@@ -371,7 +376,7 @@ None. Q-DESIGN-1..3 are answered (principal-engineer-standin) and folded in:
 
 - **Q-DESIGN-1** → §3, §6.3, §7, §8. STD-SAFETY-6 governs the test oracle. It is independent, lives under `backend/tests`, and imports neither `app.flisr` nor `app.network` nor the threshold constants. STD-ARCH-2 governs production consumers only: tolerance, max age, max lead and the as_of bounds live in `models.py`, and the planner, notes and endpoint import them from there. The waiver is scoped and recorded in §6.3.
 - **Q-DESIGN-2** → §3, §4, §6.1, §6.2, §6.3, §7. A NaN, ±inf or negative `Section.load_kw` is invalid model data. If **any** candidate section has one (the pick-up set of any candidate tie, including a tie the DEF-FLISR-7 guard would hold), `build_plan` raises `FlisrError` (HTTP 409, no plan, lockout stays open). This applies even when L ≥ 0. Otherwise L is the plain sum. Recorded as a stated precondition (§4). REQ-TIECAP-3 and REQ-TIECAP-21 are not changed for it (attempt 5 removes the Q-DESIGN-2 clause attempt 4 had added to REQ-TIECAP-21).
-- **Q-DESIGN-3** → §2, §4, §6, §7, and specification amendments. PR #13 lands first, and its guard is kept unchanged. Each tie it holds open gets one `blocked_ties` entry `FAULTED_SECTION` and the PR #13 note, which names the tie. The guard runs before load and capacity evaluation. Specification amendments, recorded in `specification.md` with this citation:
+- **Q-DESIGN-3** → §2, §4, §6, §7, and specification amendments. PR #13 lands first, and its guard is kept unchanged. Each tie it holds open gets one `blocked_ties` entry `FAULTED_SECTION` and the PR #13 note, which names the tie. The guard runs after the Q-DESIGN-2 section-load check (which covers every candidate tie, held or not) and before L and capacity evaluation (§4, A-5). Specification amendments, recorded in `specification.md` with this citation:
   - **REQ-TIECAP-21 (directed by the answer):** "…every candidate tie not closed shall appear exactly once in `blocked_ties` with the reason the amended precedence gives: FAULTED_SECTION > CAPACITY_INVALID > CAPACITY_UNKNOWN > CAPACITY_STALE > CAPACITY_EXCEEDED. A tie whose pick-up set contains an endpoint of the faulted section is FAULTED_SECTION and is never closed."
   - **REQ-TIECAP-18 (forced by "the guard's behaviour must not change", A-2):** for a FAULTED_SECTION tie, `customers_remaining` gains the customers of its candidate sections other than the faulted section, whose customers are already counted once. Capacity-blocked ties are unchanged.
   - **REQ-TIECAP-9 and REQ-TIECAP-11 (forced by the answer):** the precedence list gains FAULTED_SECTION first, and the closed reason enum gains FAULTED_SECTION.
@@ -386,7 +391,7 @@ None. Q-DESIGN-1..3 are answered (principal-engineer-standin) and folded in:
 |---|---|---|
 | A-1 | STD-ARCH-4, STD-SAFETY-4 | **Resolved for every input.** §3: `tie_capacity_verdict` states and enforces its preconditions (`ValueError`) for L NaN / ±inf / < 0, a naive or non-datetime `as_of`, a naive `entry.timestamp`, and a wrong-type entry. §4: `build_plan` refuses the plan (`FlisrError`, 409) for any NaN / ±inf / negative candidate-section load, including a negative section inside L ≥ 0 (Q-DESIGN-2), and for an out-of-range L; both checks run before the verdict. Tests: §6.1 planner/API rows, the §6.2 spur and boundary rows, U4 out-of-range and negative-section cases, §7 REQ-TIECAP-2/3/21. |
 | O-1 | STD-ARCH-1 | Accepted; `_require_iso_string` stays in `models.py` as a type parser. No change. |
-| O-2 | STD-ARCH-5 | The DEF-FLISR-7 guard is kept unchanged, first in the loop and ahead of load and capacity evaluation. It reports `FAULTED_SECTION` (Q-DESIGN-3). PR #13 test edits are limited by the §6.1 rule. |
+| O-2 | STD-ARCH-5 | The DEF-FLISR-7 guard is kept unchanged. It runs after the Q-DESIGN-2 section-load check and ahead of L and capacity evaluation (order corrected in attempt 6, A-5). It reports `FAULTED_SECTION` (Q-DESIGN-3). PR #13 test edits are limited by the §6.1 rule. |
 | O-3 | STD-ARCH-2 | Legacy conversion uses `TIE_CAPACITY_GOOD_QUALITY` (§4); P2 covers `_legacy_to_tie_capacity` and rejects `"GOOD"` literals (§6.3). |
 | O-4 | STD-SAFETY-6 | O1 extended to bare `from app.models import …` names and any module alias (§6.3). |
 | O-5 | STD-GOV-7 | Compliance note carried forward: the platform appends a `Co-Authored-By` trailer with a personal name to agent commits. The agent cannot change the commit identity. |
@@ -404,9 +409,18 @@ None. Q-DESIGN-1..3 are answered (principal-engineer-standin) and folded in:
 | O-C | STD-GOV-7 | Still open (platform): the `Co-Authored-By` trailer with a personal name is appended to agent commits; the agent cannot change it. |
 | O-D | REQ-TIECAP-12 | Kept as designed. The FAULTED_SECTION note is PR #13's text, unchanged under Q-DESIGN-3; the machine-readable code is in `blocked_ties`. |
 
-## 11. Amendments to `units.json` (Decompose artifact; A-4.2)
+### 10.3 Iteration 3 (VIOLATION on attempt 5, `1238178`)
 
-Each amended string in `units.json` is prefixed `[Design attempt 5 amendment, A-4.2]`. The schema is unchanged.
+| Item | Clause | Resolution (attempt 6) |
+|---|---|---|
+| A-5(a) | STD-ARCH-4, STD-GOV-3 | §4 pseudocode reordered: the section-load check (every candidate tie) precedes the guard branch, and the guard's `continue` is annotated "after the section-load check; before L and capacity evaluation". §7 REQ-TIECAP-9 row, §8 STD-ARCH-5, §9 Q-DESIGN-3 and §10.1 O-2 restated with the same order. A grep of `design.md` for "first in the loop", "runs first", "before any load", "guard → section" and "ahead of load and capacity" now matches only this history table. Measured with a prototype on a throw-away worktree of the base 20d2a30 (section-load check inserted before the unchanged guard, nothing else): shipped `FDR-1201`, `CB-1201` open, fault on `SEC-1201-04`, `TIE-1201-1405` 2000 kW. `SEC-1201-04.load_kw` NaN, +inf, −inf and −120.0 each → `FlisrError`, no plan. Valid loads → plan `[CB-1201 close]`, held-open note, `customers_remaining` 341, as on the base. The 13 base tests still pass with the reordered check. The worktree was discarded. |
+| A-5(b) | STD-ARCH-6 | `units.json` U3 note 2 and U4 note 3 marked `[SUPERSEDED by Design attempt 6 amendment, A-5]`, each followed by a `[Design attempt 6 amendment, A-5]` replacement. U3: precedence FAULTED_SECTION > INVALID > UNKNOWN > STALE > EXCEEDED, after the section-load check. U4: the invariant **asserts** the Q-DESIGN-3 hold (a held tie is FAULTED_SECTION and never closed) and still does not test `_isolation_switches` or the other DEF-FLISR-7-adjacent defects (spec §3). U1 title and oracle "unmodified main" amended to the 20d2a30 base (consistency with the A-4.1 resolution). §11 lists every change. |
+| O-C | STD-GOV-7 | Still open (platform): the `Co-Authored-By` trailer with a personal name is appended to agent commits; the agent cannot change it. |
+| O-E | — | Blast radius already stated in §4 ("a fault whose held tie's pick-up set … carries an invalid load now gets 409"); unchanged, for reviewers to confirm. |
+
+## 11. Amendments to `units.json` (Decompose artifact; A-4.2, A-5)
+
+Each amended string in `units.json` is prefixed `[Design attempt 5 amendment, A-4.2]` or `[Design attempt 6 amendment, A-5]`. A note replaced in attempt 6 is kept verbatim for the audit trail, prefixed `[SUPERSEDED by Design attempt 6 amendment, A-5]`, and is immediately followed by its replacement. The schema is unchanged.
 
 | Unit | Field | Was | Now |
 |---|---|---|---|
@@ -417,4 +431,6 @@ Each amended string in `units.json` is prefixed `[Design attempt 5 amendment, A-
 | U3 | requirement_ids | — | + REQ-TIECAP-11 (guard branch appends FAULTED_SECTION) |
 | U3 | scope_notes (new) | — | loop order: section-load check (every candidate tie) → guard → L → verdict; REQ-TIECAP-18 amended accounting |
 | U4 | scope_notes (new) | — | held ties: FAULTED_SECTION whatever the capacity; an invalid load in any candidate tie's pick-up set → `FlisrError` |
-
+| U1 | title, oracle (attempt 6, A-5) | "on unmodified main"; "values measured on unmodified main" | the base `backend/` tree @ 20d2a30 (PR #13) |
+| U3 | scope_notes[1] (attempt 6, A-5) | precedence INVALID > UNKNOWN > STALE > EXCEEDED | marked SUPERSEDED; replacement note: section-load check → FAULTED_SECTION > INVALID > UNKNOWN > STALE > EXCEEDED; REQ-TIECAP-18 amended accounting |
+| U4 | scope_notes[2] (attempt 6, A-5) | "must neither assert nor exclude DEF-FLISR-7 back-feed" | marked SUPERSEDED; replacement note: asserts the Q-DESIGN-3 hold (held tie FAULTED_SECTION, never closed); `_isolation_switches` and other DEF-FLISR-7-adjacent defects stay out of scope |
