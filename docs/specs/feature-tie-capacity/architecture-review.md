@@ -79,3 +79,55 @@ The design states two different behaviours for the same input, so STD-ARCH-4 is 
 
 - Every finding cites a clause and a measured or quoted source (line numbers in `design.md` @ 1238178, scope notes in `units.json` @ 1238178, plans measured on 20d2a30). None asks for scope outside the specification. The resolution only aligns the design with its own stated order and with Q-DESIGN-2. The Architect makes no design choice.
 - No production or test code changed. Base re-run: `pytest backend -q` 13 passed, `ruff check backend` all checks passed (20d2a30). The prototype edit used to re-measure "5 of 13" was reverted in a throw-away worktree.
+
+---
+
+# Architecture review — attempt 4 (Design attempt 6 @ 8d49338)
+
+**Verdict: VIOLATION** (one finding, A-6). Reviewer did not edit design.md, units.json, specification.md, code or tests (STD-ARCH-7).
+
+Standards loaded: STD-ARCH v2.0, STD-GOV v1.1, STD-SAFETY v3.1. Repo contract read: `.agents/skills/safety-critical-change/SKILL.md`, `DEMO_NOTES.md`, layer map `ui → api → logic → models`.
+
+## A-5 (attempt 3) — resolved
+
+- A-5(a): §4 pseudocode, the §4 table, the "Integration with DEF-FLISR-7" paragraph and units.json U3 now all give one order: empty-candidate skip → section-load check (every candidate tie, held or not → `FlisrError`) → DEF-FLISR-7 guard → L precondition → `tie_capacity_verdict`.
+- A-5(b): the stale U3 note is marked `[SUPERSEDED …]` and the replacement note follows it (history kept, STD-GOV-4).
+- Measured on the base (20d2a30) with the section-load check put before the guard (scratch copy, not committed). Fault SEC-1201-04, lockout CB-1201, TIE-1201-1405 C = 2000:
+  - SEC-1201-04 `load_kw` = NaN / +inf / −inf / −120.0 → base returns a plan (CB-1201 close only, tie held); prototype raises `FlisrError`. This matches Q-DESIGN-2.
+  - All loads valid → prototype plan = base plan (CB-1201 close, tie held, guard note, `customers_remaining` 341).
+  - Base suite with the prototype `flisr.py`: `13 passed, 1 warning`. The guard is unchanged for valid-load plans (STD-ARCH-5, STD-SAFETY-4).
+
+## A-6 (new) — REQ-TIECAP-3 still requires closing a held tie — VIOLATION
+
+Clauses: STD-ARCH-6 (each requirement maps to a component and test that can meet it), STD-ARCH-4 (fail-safe default), STD-GOV-3 (Q-DESIGN-3 is a human decision: FAULTED_SECTION first, the guard does not change).
+
+- specification.md REQ-TIECAP-3 (not amended): "For a candidate tie with usable capacity C, `build_plan` shall emit a `close` restoration step for that tie **if and only if** `L ≤ C + 0.5 kW`."
+- REQ-TIECAP-21 (amended per Q-DESIGN-3): "A tie whose pick-up set contains an endpoint of the faulted section is FAULTED_SECTION and is **never closed**." Design §4: the guard `continue`s before `tie_capacity_verdict`.
+- REQ-TIECAP-9 sets which reason is *recorded*. It does not cancel the "if" half of REQ-TIECAP-3's "iff", which requires a close step.
+- Measured counter-example (base 20d2a30, scenario as above). The tie's candidate set has L = 1490 kW (`load_on_nodes`) and legacy C = 2000 (GOOD at `as_of`), so capacity is usable and 1490 ≤ 2000.5. REQ-TIECAP-3 requires a close step. The guard (and the design) emits none. Output: `restoration [('CB-1201','close')]`, note "…TIE-1201-1405 held open: would back-feed faulted section…".
+- Design §7 row REQ-TIECAP-3 maps it to `tie_capacity_verdict` with no guard exception. A Coding or QA stage on another model that writes REQ-TIECAP-3 literally would close onto the fault and regress DEF-FLISR-7. That is unsafe.
+- Q-DESIGN-3 already led to amending REQ-TIECAP-9, -11, -18, -21 and -22. REQ-TIECAP-3 was left out.
+
+**Severity: high.** Literal compliance closes a tie onto a faulted section (back-feed). The fix is one clause.
+
+**Resolution (for Design; the reviewer does not edit):** amend REQ-TIECAP-3 (and REQ-TIECAP-4, which has the same scope) to apply to candidate ties not held by the DEF-FLISR-7 guard (Q-DESIGN-3), and update the §7 rows to match. Nothing else in the design has to change.
+
+## Clause check (attempt 6)
+
+| Clause | Result | Evidence |
+|---|---|---|
+| STD-ARCH-1 | OK | §2/§3: constants and pydantic models only in `models.py`, no control flow |
+| STD-ARCH-2 | OK | one production `tie_capacity_verdict`; scoped waiver for QA oracles in §6.3 (Q-DESIGN-1) |
+| STD-ARCH-3 | OK | api → flisr/network/models; flisr → network/models; network → models; models imports nothing upward; console unchanged |
+| STD-ARCH-4 | **A-6** | otherwise absent/stale/out-of-range are specified per function (§3, §4, §5) with fail-safe defaults |
+| STD-ARCH-5 | OK | the implicit-0 default is replaced by CAPACITY_UNKNOWN; the guard is kept byte-for-byte; the existing `transferred > available` refusal is kept in `tie_capacity_verdict` |
+| STD-ARCH-6 | **A-6** | REQ-TIECAP-1..23 each have a component and a test strategy in §7; REQ-TIECAP-3's requirement contradicts REQ-TIECAP-21 |
+| STD-ARCH-7 | OK | review only; no design edits |
+| STD-ARCH-8 | OK / N/A | no IEC 61850 exposure |
+| STD-SAFETY-1 / STD-GOV-6 | OK | `backend/app/flisr.py` protected; two human reviewers required; PR #15 is draft |
+| STD-SAFETY-2..6 | OK (planned) | U1 characterization on 20d2a30 + failing reproductions; U3 minimal fix; U4 ≥ 500 seeded; independent BFS/closed-form oracle with 0.5 kW tolerance. Plans only, not executed evidence |
+| STD-SAFETY-7/8 | OK | tool classification in §8; no production systems, secrets or devices |
+
+Observation (non-blocking): U1 notes [2]–[4] still say "today"/"main". [0] pins the base, so behaviour is unaffected.
+
+Baseline @ 20d2a30: `PYTHONPATH=backend python -m pytest backend -q` → 13 passed, 1 warning; `ruff check backend` → All checks passed!
