@@ -6,9 +6,31 @@ exists: ConductingEquipment mRID, Switch normalOpen, Measurement value.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Annotated, Final
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    InstanceOf,
+    StrictFloat,
+    StrictStr,
+    TypeAdapter,
+)
+
+# Tie-capacity characteristic parameters: the one production source (design section 2,
+# Q-DESIGN-1). Values from spec Q-SPEC-1/2/4/10/12; consumers import them, never restate them.
+TIE_CAPACITY_TOLERANCE_KW: Final = 0.5  # kW, L <= C + tolerance closes (Q-SPEC-1, Q-SPEC-4)
+TIE_CAPACITY_MAX_AGE: Final = timedelta(seconds=20)  # age > max -> CAPACITY_STALE (Q-SPEC-2)
+TIE_CAPACITY_MAX_LEAD: Final = timedelta(seconds=2)  # age < -lead -> CAPACITY_INVALID (Q-SPEC-10)
+AS_OF_MAX_LAG: Final = timedelta(seconds=60)  # server_now - as_of > lag -> 422 (Q-SPEC-12)
+AS_OF_MAX_LEAD: Final = timedelta(seconds=2)  # as_of - server_now > lead -> 422 (Q-SPEC-12)
+TIE_CAPACITY_GOOD_QUALITY: Final = "GOOD"  # any other quality -> CAPACITY_UNKNOWN (Q-SPEC-2)
 
 
 class SwitchKind(StrEnum):
@@ -72,6 +94,43 @@ class IsolationStep(BaseModel):
     reason: str
 
 
+# Timestamp input: a datetime instance (Python callers) or an ISO-8601 string, never a Unix
+# number or numeric string. Anything else is a validation error; AwareDatetime then rejects naive.
+_ISO_8601_INPUT = TypeAdapter(
+    InstanceOf[datetime] | Annotated[StrictStr, AfterValidator(datetime.fromisoformat)]
+)
+
+IsoAwareDatetime = Annotated[AwareDatetime, BeforeValidator(_ISO_8601_INPUT.validate_python)]
+
+
+class TieCapacity(BaseModel):
+    """Alternate-feeder spare capacity for one tie switch, as scanned by SCADA.
+
+    Types are strict per field; range and freshness are judged by the planner, not here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kw: StrictFloat
+    timestamp: IsoAwareDatetime
+    quality: StrictStr
+
+
+class TieBlockReason(StrEnum):
+    """Why a candidate tie was not closed. Declaration order is the reporting precedence."""
+
+    FAULTED_SECTION = "FAULTED_SECTION"
+    CAPACITY_INVALID = "CAPACITY_INVALID"
+    CAPACITY_UNKNOWN = "CAPACITY_UNKNOWN"
+    CAPACITY_STALE = "CAPACITY_STALE"
+    CAPACITY_EXCEEDED = "CAPACITY_EXCEEDED"
+
+
+class BlockedTie(BaseModel):
+    tie_id: str
+    reason: TieBlockReason
+
+
 class RestorationPlan(BaseModel):
     feeder_mrid: str
     faulted_section: str | None
@@ -81,6 +140,7 @@ class RestorationPlan(BaseModel):
     customers_remaining: int = 0
     transferred_load_kw: float = 0.0
     notes: list[str] = Field(default_factory=list)
+    blocked_ties: list[BlockedTie] = Field(default_factory=list)
 
 
 class TieLine(BaseModel):

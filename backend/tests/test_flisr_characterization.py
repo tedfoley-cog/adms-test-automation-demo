@@ -13,6 +13,8 @@ from app.network import get_feeder, load_network, switch_by_mrid
 pytestmark = [pytest.mark.characterization, pytest.mark.requirement("DEF-FLISR-7")]
 
 TIE_2000 = {"TIE-1201-1405": 2000.0}
+# REQ-TIECAP-11 (U2): blocked_ties is compared on its own, every other field as pinned.
+NEW_FIELDS = {"blocked_ties"}
 
 
 def cedar_ridge_in_lockout(indicated: set[str] | None = None):
@@ -27,7 +29,8 @@ def cedar_ridge_in_lockout(indicated: set[str] | None = None):
 def test_def_flisr_7_char_shipped_fault_sec_1201_03_full_plan():
     plan = build_plan(cedar_ridge_in_lockout(), "CB-1201", tie_capacity_kw=TIE_2000)
 
-    assert plan.model_dump() == {
+    assert plan.blocked_ties == []
+    assert plan.model_dump(exclude=NEW_FIELDS) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": "SEC-1201-03",
         "isolation": [
@@ -54,7 +57,8 @@ def test_def_flisr_7_char_fault_sec_1201_02_full_plan():
         cedar_ridge_in_lockout({"SEC-1201-01"}), "CB-1201", tie_capacity_kw=TIE_2000
     )
 
-    assert plan.model_dump() == {
+    assert plan.blocked_ties == []
+    assert plan.model_dump(exclude=NEW_FIELDS) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": "SEC-1201-02",
         "isolation": [
@@ -81,7 +85,8 @@ def test_def_flisr_7_char_fault_sec_1201_03_tie_capacity_short():
         cedar_ridge_in_lockout(), "CB-1201", tie_capacity_kw={"TIE-1201-1405": 1000.0}
     )
 
-    assert plan.model_dump() == {
+    assert plan.blocked_ties == []
+    assert plan.model_dump(exclude=NEW_FIELDS) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": "SEC-1201-03",
         "isolation": [
@@ -104,7 +109,8 @@ def test_def_flisr_7_char_fault_sec_1201_03_tie_capacity_short():
 def test_def_flisr_7_char_no_fault_indication_requires_patrol():
     plan = build_plan(cedar_ridge_in_lockout(set()), "CB-1201", tie_capacity_kw=TIE_2000)
 
-    assert plan.model_dump() == {
+    assert plan.blocked_ties == []
+    assert plan.model_dump(exclude=NEW_FIELDS) == {
         "feeder_mrid": "FDR-1201",
         "faulted_section": None,
         "isolation": [],
