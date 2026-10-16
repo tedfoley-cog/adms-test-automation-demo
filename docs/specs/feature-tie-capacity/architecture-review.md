@@ -131,3 +131,73 @@ Clauses: STD-ARCH-6 (each requirement maps to a component and test that can meet
 Observation (non-blocking): U1 notes [2]–[4] still say "today"/"main". [0] pins the base, so behaviour is unaffected.
 
 Baseline @ 20d2a30: `PYTHONPATH=backend python -m pytest backend -q` → 13 passed, 1 warning; `ruff check backend` → All checks passed!
+
+---
+
+# Architecture review — attempt 5 (Design attempt 7 @ de7e75c)
+
+**Verdict: CONFIRMED.** No violation. A-6 is resolved. The reviewer did not edit design.md, specification.md, units.json, decomposition.md, code or tests (STD-ARCH-7): after merging de7e75c into this branch, `git diff de7e75c HEAD` is empty for all four files.
+
+## Prepare
+
+- Standards loaded from the brief: STD-ARCH v2.0 (STD-ARCH-1..8), STD-SAFETY v3.1 (STD-SAFETY-1..8), STD-GOV v1.1 (STD-GOV-1..7).
+- Repo instructions read: `.agents/skills/safety-critical-change/SKILL.md`, `DEMO_NOTES.md`. Layer map (brief): `ui → api → logic → models`.
+- Inputs checked against the remote: `main` = 5f6b471, the PR #13 head (`agent/rca-backfeed/fix`) is still 20d2a303c9548f9f7170cb3dfef1487fb7e9a009 (no base drift), PR #14 head = 44d9031, design PR #15 = draft @ de7e75c with label `ai-generated`. Commit de7e75c has the `AI-Governance` trailer.
+- Baseline on a throw-away worktree of 20d2a30: `PYTHONPATH=backend python -m pytest backend -q` → 13 passed, 1 warning. `ruff check backend` → All checks passed!
+
+## A-6 (attempt 4): resolved
+
+- `specification.md` REQ-TIECAP-3 and REQ-TIECAP-4 are now scoped to candidate ties whose pick-up set contains no endpoint of the faulted section. Each carries an inline amendment marker citing Q-DESIGN-3. A held tie is "never closed, whatever its capacity" and is recorded FAULTED_SECTION. A held tie with `L > C + 0.5` is FAULTED_SECTION, not EXCEEDED. The "if" half of the "iff" therefore no longer requires closing a held tie. REQ-TIECAP-3 and REQ-TIECAP-21 now agree.
+- Spec §2 item 2 (the more-permissive τ window) and the §4 oracle note are scoped the same way. The §3 docstring of `tie_capacity_verdict` says it is never called for a held tie. The §7 rows for REQ-TIECAP-3/4 map to guard-then-verdict and add held-tie tests (C = 2000.0 GOOD and C = 10.0 GOOD → FAULTED_SECTION only).
+- `units.json`: the U3 attempt-6 loop note is marked SUPERSEDED and followed by its replacement. The U3 and U4 oracles name the held-tie check before capacity. The JSON parses (U1 has 10 notes, U2 3, U3 10, U4 5).
+- Grep of `design.md`, `specification.md` and `units.json` for "if and only if", "close iff" and "closes iff": every live hit is scoped to ties not held. The only other hits are SUPERSEDED notes and the history tables.
+- The other requirements that name a capacity reason (REQ-TIECAP-5..8) all say "emit no step", which is consistent with the hold. Which reason gets recorded is settled by the amended REQ-TIECAP-9 ("record only the first", FAULTED_SECTION first). This is the same structure the spec already used for INVALID vs UNKNOWN, so no further amendment is needed.
+- Measured on the base 20d2a30 (shipped `FDR-1201`, `CB-1201` open, legacy map; read-only script, nothing committed):
+
+| Input | Faulted | Restoration | customers_remaining / restored | Note |
+|---|---|---|---|---|
+| shipped indicators, no entry | SEC-1201-03 | CB-1201 close | 437 / 0 | "…skipped: 1490 kW exceeds 0 kW…" |
+| shipped indicators, NaN | SEC-1201-03 | CB-1201, **TIE-1201-1405 close** | 96 / 341 | none |
+| shipped indicators, 1489.5 | SEC-1201-03 | CB-1201 close | 437 / 0 | "…1490 kW exceeds 1490 kW…" |
+| fault on SEC-1201-04, C = 2000 | SEC-1201-04 | CB-1201 close | 341 / 0 | held open: would back-feed SEC-1201-04 |
+| fault on SEC-1201-04, C = 10 | SEC-1201-04 | CB-1201 close | 341 / 0 | held open |
+| fault on SEC-1201-04, SEC-1201-04 load NaN | SEC-1201-04 | CB-1201 close | 341 / 0 | held open (the design turns this into `FlisrError`, Q-DESIGN-2) |
+
+  These rows match what the design and the amended spec state: the U1 repro (a)/(b) inputs are not held, the 1489.5 row is intended change 2, the held rows become FAULTED_SECTION, and the Q-DESIGN-2 row becomes no plan.
+
+## Clause check (design attempt 7)
+
+| Clause | Result | Evidence |
+|---|---|---|
+| STD-ARCH-1 | Conforms | design §2: constants, `IsoAwareDatetime`, `TieCapacity`, `TieBlockReason` (5), `BlockedTie` and the `RestorationPlan` fields live in `models.py` with no control flow. `_require_iso_string` is a type parser (O-1). `FlisrRequest` is an API DTO in `api.py`, following the existing convention. |
+| STD-ARCH-2 | Conforms under the scoped waiver | One production characteristic (`tie_capacity_verdict`) and one predicate (`_not_finite_nonneg`). Parameters come only from `models.py`, enforced by P1/P2. The test-oracle restatement is waived per Q-DESIGN-1 (§6.3, O1). FAULTED_SECTION is not a verdict output. |
+| STD-ARCH-3 | Conforms | `models` imports pydantic/stdlib only. `flisr` imports `.models`/`.network` (matches `flisr.py` @ 20d2a30). `api` imports `.flisr`/`.models`/`.network`. `console/**` is unchanged. No upward import. |
+| STD-ARCH-4 | Conforms | §3 verdict preconditions and decisions; §4 table (both maps, `as_of` absent/naive/non-datetime, legacy, wrong type, invalid section load for every candidate tie, L overflow, held tie, non-candidate entry, lockout, no fault); §5 endpoint. Every row fails safe. No input has two stated behaviours: the A-5 order and the A-6 scope are consistent across §3, §4, §7, §9, the units and the spec. |
+| STD-ARCH-5 | Conforms | §4 removed-guard table. The implicit 0 kW default is replaced by CAPACITY_UNKNOWN. The `transferred > available` refusal is kept as the verdict's positive close condition. The PR #13 guard is kept byte-for-byte (its branch only adds `blocked_ties.append`). The §6.1 edit rule for the 5 affected base tests changes no step or count. |
+| STD-ARCH-6 | Conforms | §7 maps REQ-TIECAP-1..23 one by one, each to a component and a test (checked id by id). The REQ-TIECAP-3/4/9/11/18/21/22 amendments are marked in the spec and traced in §9/§10.4/§11. The unit boundaries in `units.json` match the design. |
+| STD-ARCH-7 | Conforms | Review only (see the verdict line above). |
+| STD-ARCH-8 | Conforms / N/A | No IEC 61850 LN/DO exposure. `blocked_ties` is internal to the planner API. |
+| STD-SAFETY-1 / STD-GOV-6 | Conforms | Safety-critical. Protected `backend/app/flisr.py` needs two human reviewers (design header, U1–U4). |
+| STD-SAFETY-2 | Conforms (planned) | U1 characterization is pinned on 20d2a30 by SHA, with a base-drift STOP. Measured: no drift. |
+| STD-SAFETY-3 | Conforms (planned) | Repros (a) no entry and (b) legacy NaN/+inf on shipped indicators (SEC-1201-03, tie not held) fail on the base as `xfail(strict=True)` intends (table above). |
+| STD-SAFETY-4 | Conforms | Smallest change in the tie loop. Refusal or block on every ambiguous input. Held ties are never closed. |
+| STD-SAFETY-5 | Conforms (planned) | U4: ≥ 500 seeded cases with any-node ties and faults, ≥ 5 % each of out-of-range L, a negative section inside a positive total, and held ties. Seed and count are printed. |
+| STD-SAFETY-6 | Conforms (per-unit waived by Q-SPEC-4) | Independent `oracle_*` under `backend/tests` (§6.3), with O1 import/constant check and oracle self-check. The held-tie check comes before capacity. Tolerance 0.5 kW in engineering units. |
+| STD-SAFETY-7 | Conforms | §8.1 tool-classification argument (agents T3-like; pytest/ruff/ast checks T2). No credit claimed. |
+| STD-SAFETY-8 | Conforms | Local worktrees and synthetic model copies only. |
+| STD-GOV-1/2 | Conforms | `agent/` branches; draft PR #15 with label `ai-generated`; trailer on de7e75c and on this review's commits. |
+| STD-GOV-3 | Conforms | REQ-TIECAP-3/4 now follow Q-DESIGN-3 as written. Q-DESIGN-1/2 are applied as answered. No decision is inferred. |
+| STD-GOV-7 | Note (O-C) | see Observations. |
+
+## Observations (no verdict impact)
+
+- **O-C (STD-GOV-7, platform).** The platform still appends a `Co-Authored-By` trailer with a personal name and e-mail to agent commits (de7e75c and this review's commits). The agent cannot change the commit identity. Carried forward for a human to resolve.
+- **O-F (wording).** design.md §3, decision "Out-of-range L is refused", says "the four reasons describe C, not L. Adding a fifth reason would change REQ-TIECAP-11". REQ-TIECAP-11 now has five members, so the sentence should say "the four capacity reasons … adding another reason". This is rationale text only. The behaviour (L out of range → `FlisrError`, never a `BlockedTie`) is stated consistently elsewhere.
+- **O-G (audit trail).** The U3/U4 `oracle` strings in `units.json` were replaced in place with the `[Design attempt 7 amendment, A-6]` prefix, unlike scope notes, which keep the superseded text. The previous text is still in git (8d49338) and summarised in design §11, so this is acceptable, but Integrate should not rely on `units.json` alone for oracle history.
+- **O-E (blast radius, unchanged).** A held tie whose pick-up set has an invalid load now returns 409 and no plan where PR #13 returns isolation steps. Spec §2 item 5 (the 80 s residual back-dating window) and item 2 (the τ window) also still need reviewer confirmation. All three are stated in the artifacts.
+- **Out of scope, still unfixed (spec §3):** a manual (non-SCADA) upstream switch means the lockout reclose re-energises the fault (`_isolation_switches`), and `customers_remaining` is per tie, so it can double-count sections shared by several blocked ties (Q-SPEC-7 exclusion). The design does not need to address either; both should be tracked as separate defects.
+
+## Verify
+
+- Every clause above cites a design section, spec row, unit note or measurement. No finding asks for anything outside the specification's scope.
+- No production or test code was changed. The base re-run is green (13 passed; ruff clean). The measurement script was read-only on a worktree, and the worktree was removed.
