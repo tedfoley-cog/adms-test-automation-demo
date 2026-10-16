@@ -209,6 +209,22 @@ def test_req_tiecap_1_models_module_imports_stdlib_and_pydantic_only():
     assert roots <= allowed, roots - allowed
 
 
+CONTROL_FLOW = (ast.If, ast.IfExp, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.Match)
+
+
+@pytest.mark.requirement("REQ-TIECAP-1")
+def test_req_tiecap_1_models_module_has_no_control_flow():
+    # STD-ARCH-1 / verify check model_logic_separation: models.py declares types and
+    # constants only; validation is composed from pydantic types, never branched by hand.
+    tree = ast.parse(Path(models.__file__).read_text())
+    found = [
+        f"line {node.lineno}: {type(node).__name__}"
+        for node in ast.walk(tree)
+        if isinstance(node, CONTROL_FLOW)
+    ]
+    assert found == []
+
+
 @pytest.mark.requirement("REQ-TIECAP-11")
 def test_req_tiecap_11_block_reason_members_in_precedence_order():
     # REQ-TIECAP-11 / REQ-TIECAP-9 as amended by Q-DESIGN-3.
