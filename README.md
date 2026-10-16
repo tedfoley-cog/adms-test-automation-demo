@@ -77,6 +77,12 @@ ACE and per-unit regulation setpoints. The audience watches the verification con
 coverage bars, migration readiness, parity table — and then watches Devin click-test that
 console in its own browser before it opens a PR.
 
+## Operator documentation
+
+- [FLISR restoration: tie switches close only within live spare capacity](docs/flisr/tie-capacity.md)
+  — request and response fields, block reasons, boundary behaviour, settings generated from
+  `backend/app/models.py`, and what the feature does not do (REQ-TIECAP-1..23).
+
 ## How the demo runs
 
 Trigger: prompt a fresh Devin session against this repo, e.g.

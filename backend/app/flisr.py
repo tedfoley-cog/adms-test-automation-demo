@@ -8,7 +8,22 @@ downstream through tie switches where the alternate feeder has capacity.
 
 from __future__ import annotations
 
-from .models import Feeder, IsolationStep, RestorationPlan
+import math
+from datetime import UTC, datetime
+
+from .models import (
+    TIE_CAPACITY_GOOD_QUALITY,
+    TIE_CAPACITY_MAX_AGE,
+    TIE_CAPACITY_MAX_LEAD,
+    TIE_CAPACITY_TOLERANCE_KW,
+    BlockedTie,
+    Feeder,
+    IsolationStep,
+    RestorationPlan,
+    Switch,
+    TieBlockReason,
+    TieCapacity,
+)
 from .network import (
     energised_nodes,
     load_on_nodes,
@@ -19,6 +34,114 @@ from .network import (
 
 class FlisrError(RuntimeError):
     """Raised when the engine cannot build a defensible plan."""
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _not_finite_nonneg(value: object) -> bool:
+    """True when value is not a real number (bool excluded), or is NaN, +/-inf or negative."""
+    return not (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    )
+
+
+def _is_aware_datetime(value: object) -> bool:
+    return isinstance(value, datetime) and value.utcoffset() is not None
+
+
+def tie_capacity_verdict(
+    entry: TieCapacity | None, transferred_kw: float, as_of: datetime
+) -> TieBlockReason | None:
+    """The one tie-capacity characteristic: None = the tie may close, else why it may not.
+
+    Preconditions, checked before any comparison; a violation raises ValueError (no verdict):
+    transferred_kw is a finite number >= 0; as_of is a timezone-aware datetime; entry is None
+    or a TieCapacity with a timezone-aware timestamp.
+    Decisions, first match wins (REQ-TIECAP-9): no entry -> CAPACITY_UNKNOWN; kw not a finite
+    number >= 0, or timestamp more than TIE_CAPACITY_MAX_LEAD ahead of as_of ->
+    CAPACITY_INVALID; quality other than TIE_CAPACITY_GOOD_QUALITY -> CAPACITY_UNKNOWN; older
+    than TIE_CAPACITY_MAX_AGE -> CAPACITY_STALE; transferred_kw <= kw +
+    TIE_CAPACITY_TOLERANCE_KW -> None; otherwise CAPACITY_EXCEEDED. Never called for a tie the
+    DEF-FLISR-7 guard holds. Never substitutes, clamps or defaults a value.
+    """
+    if _not_finite_nonneg(transferred_kw):
+        raise ValueError(
+            f"transferred load {transferred_kw!r} kW is not a finite non-negative number"
+        )
+    if not _is_aware_datetime(as_of):
+        raise ValueError(f"as_of {as_of!r} is not a timezone-aware datetime")
+    if entry is None:
+        return TieBlockReason.CAPACITY_UNKNOWN
+    if not isinstance(entry, TieCapacity):
+        raise ValueError(f"tie capacity {entry!r} is not a TieCapacity")
+    if not _is_aware_datetime(entry.timestamp):
+        raise ValueError(f"tie capacity timestamp {entry.timestamp!r} is not timezone-aware")
+    age = as_of - entry.timestamp
+    if _not_finite_nonneg(entry.kw) or age < -TIE_CAPACITY_MAX_LEAD:
+        return TieBlockReason.CAPACITY_INVALID
+    if entry.quality != TIE_CAPACITY_GOOD_QUALITY:
+        return TieBlockReason.CAPACITY_UNKNOWN
+    if age > TIE_CAPACITY_MAX_AGE:
+        return TieBlockReason.CAPACITY_STALE
+    if transferred_kw <= entry.kw + TIE_CAPACITY_TOLERANCE_KW:
+        return None
+    return TieBlockReason.CAPACITY_EXCEEDED
+
+
+def _legacy_to_tie_capacity(
+    tie_capacity_kw: dict[str, float], as_of: datetime
+) -> dict[str, TieCapacity]:
+    """Deprecated map: each value is a GOOD reading taken at as_of (REQ-TIECAP-16).
+
+    model_construct skips validation so NaN, inf, negative or non-numeric values reach the
+    verdict and are reported CAPACITY_INVALID instead of being coerced.
+    """
+    return {
+        mrid: TieCapacity.model_construct(
+            kw=kw, timestamp=as_of, quality=TIE_CAPACITY_GOOD_QUALITY
+        )
+        for mrid, kw in tie_capacity_kw.items()
+    }
+
+
+def _blocked_note(
+    switch: Switch,
+    reason: TieBlockReason,
+    entry: TieCapacity | None,
+    transferred_kw: float,
+    as_of: datetime,
+) -> str:
+    """Operator note for a capacity-blocked tie; formats the verdict's reason, decides nothing."""
+    prefix = f"{switch.name} blocked ({reason.value})"
+    if entry is None:
+        return f"{prefix}: no capacity value"
+    if reason is TieBlockReason.CAPACITY_EXCEEDED:
+        return (
+            f"{prefix}: {transferred_kw:.1f} kW to transfer exceeds {entry.kw:.1f} kW "
+            f"available capacity (+{TIE_CAPACITY_TOLERANCE_KW:g} kW tolerance)"
+        )
+    if reason is TieBlockReason.CAPACITY_STALE:
+        age_s = (as_of - entry.timestamp).total_seconds()
+        return (
+            f"{prefix}: capacity value is {age_s:.3f} s old "
+            f"(limit {TIE_CAPACITY_MAX_AGE.total_seconds():g} s)"
+        )
+    if reason is TieBlockReason.CAPACITY_UNKNOWN:
+        return (
+            f"{prefix}: capacity quality {entry.quality!r} is not {TIE_CAPACITY_GOOD_QUALITY}"
+        )
+    if _not_finite_nonneg(entry.kw):
+        return f"{prefix}: capacity {entry.kw} kW is not a finite non-negative number"
+    lead_s = (entry.timestamp - as_of).total_seconds()
+    return (
+        f"{prefix}: capacity timestamp is {lead_s:.3f} s ahead of as_of "
+        f"(limit {TIE_CAPACITY_MAX_LEAD.total_seconds():g} s)"
+    )
 
 
 def locate_fault(feeder: Feeder) -> str | None:
@@ -66,14 +189,48 @@ def build_plan(
     feeder: Feeder,
     lockout_switch_mrid: str,
     tie_capacity_kw: dict[str, float] | None = None,
+    *,
+    tie_capacity: dict[str, TieCapacity] | None = None,
+    as_of: datetime | None = None,
 ) -> RestorationPlan:
-    tie_capacity_kw = tie_capacity_kw or {}
+    """Isolation and restoration plan for a feeder in lockout.
+
+    tie_capacity: alternate-feeder spare capacity per tie mRID. A candidate tie without a
+    usable entry is never closed; it is listed in plan.blocked_ties (tie_capacity_verdict).
+    tie_capacity_kw: deprecated plain-kW map, read as GOOD readings taken at as_of; mutually
+    exclusive with tie_capacity (both given -> ValueError, no plan).
+    as_of: timezone-aware evaluation instant, read from the UTC clock once when None; a naive
+    or non-datetime value -> ValueError, no plan.
+    A candidate section load that is not a finite number >= 0 means the network model is
+    invalid: FlisrError, no plan.
+    """
+    if tie_capacity is not None and tie_capacity_kw is not None:
+        raise ValueError("tie_capacity and tie_capacity_kw are mutually exclusive")
+    if as_of is None:
+        as_of = _utc_now()
+    if not _is_aware_datetime(as_of):
+        raise ValueError(f"as_of {as_of!r} is not a timezone-aware datetime")
+    as_of = as_of.astimezone(UTC)
+    deprecations: list[str] = []
+    if tie_capacity_kw is not None:
+        capacities = _legacy_to_tie_capacity(tie_capacity_kw, as_of)
+        deprecations.append("tie_capacity_kw")
+    elif tie_capacity is not None:
+        capacities = tie_capacity
+    else:
+        capacities = {}
+
     lockout = switch_by_mrid(feeder, lockout_switch_mrid)
     if not lockout.open:
         raise FlisrError(f"{lockout.name} is not in lockout")
 
     faulted = locate_fault(feeder)
-    plan = RestorationPlan(feeder_mrid=feeder.mrid, faulted_section=faulted)
+    plan = RestorationPlan(
+        feeder_mrid=feeder.mrid,
+        faulted_section=faulted,
+        as_of=as_of,
+        deprecations=deprecations,
+    )
     if faulted is None:
         plan.notes.append("no fault indication received; manual patrol required")
         plan.customers_remaining = sum(
@@ -94,10 +251,19 @@ def build_plan(
         candidate_nodes = _nodes_restored_by(feeder, switch.mrid, isolated_mrids)
         if not candidate_nodes:
             continue
+        for section in feeder.sections:
+            if section.to_node in candidate_nodes and _not_finite_nonneg(section.load_kw):
+                raise FlisrError(
+                    f"{section.name}: load_kw {section.load_kw} kW is not a finite non-negative "
+                    "number; network model invalid, no plan"
+                )
         if candidate_nodes & {faulted_section.from_node, faulted_section.to_node}:
             plan.notes.append(
                 f"{switch.name} ({switch.mrid}) held open: would back-feed faulted section "
                 f"{faulted_section.name} ({faulted_section.mrid})"
+            )
+            plan.blocked_ties.append(
+                BlockedTie(tie_id=switch.mrid, reason=TieBlockReason.FAULTED_SECTION)
             )
             plan.customers_remaining += sum(
                 section.customers
@@ -106,12 +272,16 @@ def build_plan(
             )
             continue
         transferred = load_on_nodes(feeder, candidate_nodes)
-        available = tie_capacity_kw.get(switch.mrid, 0.0)
-        if transferred > available:
-            plan.notes.append(
-                f"{switch.name} skipped: {transferred:.0f} kW exceeds "
-                f"{available:.0f} kW available capacity"
+        if _not_finite_nonneg(transferred):
+            raise FlisrError(
+                f"{switch.name}: transferred load {transferred} kW is not a finite non-negative "
+                "number; network model invalid, no plan"
             )
+        entry = capacities.get(switch.mrid)
+        reason = tie_capacity_verdict(entry, transferred, as_of)
+        if reason is not None:
+            plan.blocked_ties.append(BlockedTie(tie_id=switch.mrid, reason=reason))
+            plan.notes.append(_blocked_note(switch, reason, entry, transferred, as_of))
             plan.customers_remaining += sum(
                 section.customers
                 for section in feeder.sections
