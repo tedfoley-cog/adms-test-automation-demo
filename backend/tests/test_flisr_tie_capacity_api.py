@@ -170,7 +170,8 @@ def test_req_tiecap_13_rejected_body_with_non_finite_input_is_422_not_500(client
     response = post_raw(client, payload)
     assert response.status_code == 422, response.text
     assert planner.calls == []
-    assert "input" not in response.text and "NaN" not in response.text
+    assert '"input"' not in response.text
+    assert "NaN" not in response.text and "Infinity" not in response.text
 
 
 @pytest.mark.requirement("REQ-TIECAP-13")

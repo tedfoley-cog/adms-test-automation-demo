@@ -140,7 +140,9 @@ class RestorationPlan(BaseModel):
     customers_remaining: int = 0
     transferred_load_kw: float = 0.0
     notes: list[str] = Field(default_factory=list)
+    as_of: AwareDatetime  # instant every capacity value was aged against, UTC (REQ-TIECAP-14)
     blocked_ties: list[BlockedTie] = Field(default_factory=list)
+    deprecations: list[str] = Field(default_factory=list)  # legacy request fields used
 
 
 class TieLine(BaseModel):
