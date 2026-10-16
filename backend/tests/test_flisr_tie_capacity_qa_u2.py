@@ -461,6 +461,9 @@ BASE_PLAN_FIELDS = {
     "transferred_load_kw": 0.0,
     "notes": [],
 }
+# U3 makes RestorationPlan.as_of required (REQ-TIECAP-14) and adds deprecations (REQ-TIECAP-16).
+QA_AS_OF = datetime(2026, 10, 15, 22, 0, 0, tzinfo=UTC)
+QA_AS_OF_JSON = "2026-10-15T22:00:00Z"
 
 
 @pytest.mark.requirement("REQ-TIECAP-11")
@@ -504,18 +507,26 @@ def test_qa_u2_blocked_tie_rejects_malformed(payload):
 
 @pytest.mark.requirement("REQ-TIECAP-11")
 def test_qa_u2_restoration_plan_is_additive_with_empty_default():
-    plan = RestorationPlan.model_validate({"feeder_mrid": "FDR-1201", "faulted_section": None})
+    plan = RestorationPlan.model_validate(
+        {"feeder_mrid": "FDR-1201", "faulted_section": None, "as_of": QA_AS_OF}
+    )
     dumped = plan.model_dump()
     assert dumped.pop("blocked_ties") == []
+    assert dumped.pop("as_of") == QA_AS_OF
+    assert dumped.pop("deprecations") == []
     assert dumped == BASE_PLAN_FIELDS
-    assert list(RestorationPlan.model_fields) == [*BASE_PLAN_FIELDS, "blocked_ties"]
+    assert list(RestorationPlan.model_fields) == [
+        *BASE_PLAN_FIELDS, "as_of", "blocked_ties", "deprecations"
+    ]
 
     # A base-shaped JSON document (no blocked_ties key) still validates: additive only.
-    legacy = RestorationPlan.model_validate_json(json.dumps(BASE_PLAN_FIELDS))
+    legacy = RestorationPlan.model_validate_json(
+        json.dumps(dict(BASE_PLAN_FIELDS, as_of=QA_AS_OF_JSON))
+    )
     assert legacy.blocked_ties == []
 
     # Default is per instance, not shared.
-    other = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None)
+    other = RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None, as_of=QA_AS_OF)
     plan.blocked_ties.append(BlockedTie(tie_id="TIE-1201-1405", reason="CAPACITY_STALE"))
     assert other.blocked_ties == []
 
@@ -527,7 +538,13 @@ def test_qa_u2_restoration_plan_blocked_ties_round_trip_over_http_preserves_orde
         {"tie_id": "TIE-1201-1406", "reason": "CAPACITY_EXCEEDED"},
         {"tie_id": "TIE-1201-1407", "reason": "CAPACITY_UNKNOWN"},
     ]
-    payload = dict(BASE_PLAN_FIELDS, faulted_section="SEC-1201-03", blocked_ties=blocked)
+    payload = dict(
+        BASE_PLAN_FIELDS,
+        faulted_section="SEC-1201-03",
+        as_of=QA_AS_OF_JSON,
+        blocked_ties=blocked,
+        deprecations=[],
+    )
     response = client.post("/qa/plan", json=payload)
     assert response.status_code == 200, response.text
     assert response.json() == payload
@@ -545,4 +562,6 @@ def test_qa_u2_restoration_plan_blocked_ties_round_trip_over_http_preserves_orde
 )
 def test_qa_u2_restoration_plan_rejects_malformed_blocked_ties(blocked_ties):
     with pytest.raises(ValidationError):
-        RestorationPlan(feeder_mrid="FDR-1201", faulted_section=None, blocked_ties=blocked_ties)
+        RestorationPlan(
+            feeder_mrid="FDR-1201", faulted_section=None, as_of=QA_AS_OF, blocked_ties=blocked_ties
+        )

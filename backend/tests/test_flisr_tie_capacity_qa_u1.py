@@ -343,9 +343,13 @@ def test_qa_u1_characterization_avoids_behaviour_change_band():
     assert not any(in_band(1490.0, c) for c in CHAR_SEC_03)
     assert not any(in_band(1920.0, c) for c in CHAR_SEC_02)
     assert not any(in_band(300.0, t1) or in_band(150.0, t2) for t1, t2 in CHAR_TWO_TIE)
-    # and the band really is a behaviour change on the base: C = L - 0.5 skips the tie today
-    assert sut(build_plan(shipped_feeder(), "CB-1201", tie_capacity_kw={"TIE-1201-1405": 1489.5}
-                          ))["restoration"] == [char_mod.RECLOSE_CB_1201]
+    # and the band really is a behaviour change: C = L - 0.5 skipped the tie on the base @ 20d2a30
+    # (PR #17) and closes it once U3 lands (REQ-TIECAP-3, spec intended change 2).
+    restoration = sut(build_plan(shipped_feeder(), "CB-1201",
+                                 tie_capacity_kw={"TIE-1201-1405": 1489.5}))["restoration"]
+    assert restoration[0] == char_mod.RECLOSE_CB_1201
+    tie_steps = [(s["switch_mrid"], s["action"]) for s in restoration[1:]]
+    assert tie_steps == [("TIE-1201-1405", "close")]
 
 
 @pytest.mark.requirement("REQ-TIECAP-22")
@@ -409,8 +413,8 @@ def test_qa_u1_every_test_carries_requirement_and_class_markers():
     for func in _tests(repro_mod):
         marks = _marks(func)
         assert marks["requirement"].args[0] in {"REQ-TIECAP-5", "REQ-TIECAP-8"}, func.__name__
-        assert marks["xfail"].kwargs.get("strict") is True, func.__name__
-        assert marks["xfail"].kwargs["reason"].startswith("REPRO ")
+        # U3 removes only the strict-xfail markers (design §6.1); the reproductions now pass.
+        assert "xfail" not in marks, func.__name__
 
 
 def test_qa_u1_oracle_is_independent_of_planner_and_network():
