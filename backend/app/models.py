@@ -11,13 +11,16 @@ from enum import StrEnum
 from typing import Annotated, Final
 
 from pydantic import (
+    AfterValidator,
     AwareDatetime,
     BaseModel,
     BeforeValidator,
     ConfigDict,
     Field,
+    InstanceOf,
     StrictFloat,
     StrictStr,
+    TypeAdapter,
 )
 
 # Tie-capacity characteristic parameters: the one production source (design section 2,
@@ -91,16 +94,13 @@ class IsolationStep(BaseModel):
     reason: str
 
 
-def _require_iso_string(value: object) -> object:
-    """Accept a datetime (Python callers) or an ISO-8601 string only; never a Unix number."""
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        return datetime.fromisoformat(value)
-    raise ValueError("timestamp must be an ISO-8601 string")
+# Timestamp input: a datetime instance (Python callers) or an ISO-8601 string, never a Unix
+# number or numeric string. Anything else is a validation error; AwareDatetime then rejects naive.
+_ISO_8601_INPUT = TypeAdapter(
+    InstanceOf[datetime] | Annotated[StrictStr, AfterValidator(datetime.fromisoformat)]
+)
 
-
-IsoAwareDatetime = Annotated[AwareDatetime, BeforeValidator(_require_iso_string)]
+IsoAwareDatetime = Annotated[AwareDatetime, BeforeValidator(_ISO_8601_INPUT.validate_python)]
 
 
 class TieCapacity(BaseModel):
