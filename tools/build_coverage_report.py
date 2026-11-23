@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import glob
 import gzip
 import json
 import subprocess
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 REPO = Path(__file__).resolve().parent.parent
 FIRMWARE = REPO / "firmware"
@@ -95,9 +95,17 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def firmware_modules() -> list[dict[str, object]]:
-    run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
-    for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
+    build_root = FIRMWARE / "build"
+    build_root.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="coverage-", dir=build_root) as build:
+        build_path = Path(build)
+        run(["make", "coverage", f"BUILD={build_path.relative_to(FIRMWARE)}"], FIRMWARE)
+        return merge_firmware_coverage(build_path)
+
+
+def merge_firmware_coverage(build: Path) -> list[dict[str, object]]:
+    lines_by_source: dict[str, dict[int, bool]] = {}
+    for archive in sorted(build.glob("*.gcov.json.gz")):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):
@@ -105,11 +113,20 @@ def firmware_modules() -> list[dict[str, object]]:
             if not source.startswith("src/"):
                 continue
             path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            lines = lines_by_source.setdefault(path, {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                lines[number] = lines.get(number, False) or line.get("count", 0) > 0
+
+    if not any(lines_by_source.values()):
+        raise SystemExit("No firmware coverage data found; check gcov and the firmware build.")
+
+    modules: list[dict[str, object]] = []
+    for path, lines in sorted(lines_by_source.items()):
+        uncovered = sorted(number for number, covered in lines.items() if not covered)
+        modules.append(
+            build_module(path, "firmware", "C", len(lines), len(lines) - len(uncovered), uncovered)
+        )
     return modules
 
 
@@ -180,7 +197,7 @@ def main() -> None:
     total_lines = sum(int(m["lines_total"]) for m in modules)
     covered_lines = sum(int(m["lines_covered"]) for m in modules)
     overall = round((covered_lines / total_lines) * 100, 1) if total_lines else 0.0
-    generated_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    generated_at = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
 
     report = {
         "generated_at": generated_at,
