@@ -95,9 +95,12 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def firmware_modules() -> list[dict[str, object]]:
-    with TemporaryDirectory(prefix="firmware-coverage-") as build:
-        run(["make", "coverage", f"BUILD={build}"], FIRMWARE)
-        return merge_firmware_coverage(Path(build))
+    build_root = FIRMWARE / "build"
+    build_root.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="coverage-", dir=build_root) as build:
+        build_path = Path(build)
+        run(["make", "coverage", f"BUILD={build_path.relative_to(FIRMWARE)}"], FIRMWARE)
+        return merge_firmware_coverage(build_path)
 
 
 def merge_firmware_coverage(build: Path) -> list[dict[str, object]]:
