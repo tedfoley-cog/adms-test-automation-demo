@@ -17,7 +17,7 @@
         "RPTACE",
         "ALLOCR"
       ],
-      "target_coverage_pct": 0.0,
+      "target_coverage_pct": 100.0,
       "characterization_tests": 0,
       "parity_checked": true
     },
@@ -52,7 +52,7 @@
         "HAB_SAVECASE",
         "HDB_READ_EXPORT"
       ],
-      "target_coverage_pct": 0.0,
+      "target_coverage_pct": 100.0,
       "characterization_tests": 0,
       "parity_checked": false
     }

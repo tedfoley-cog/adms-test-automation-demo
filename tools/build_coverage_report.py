@@ -96,7 +96,7 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 def firmware_modules() -> list[dict[str, object]]:
     run(["make", "coverage"], FIRMWARE)
-    modules: list[dict[str, object]] = []
+    lines_by_source: dict[str, dict[int, bool]] = {}
     for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -105,11 +105,17 @@ def firmware_modules() -> list[dict[str, object]]:
             if not source.startswith("src/"):
                 continue
             path = f"firmware/{source}"
-            lines = file_entry.get("lines", [])
-            total = len(lines)
-            covered = sum(1 for line in lines if line.get("count", 0) > 0)
-            uncovered = [line["line_number"] for line in lines if line.get("count", 0) == 0]
-            modules.append(build_module(path, "firmware", "C", total, covered, uncovered))
+            lines = lines_by_source.setdefault(path, {})
+            for line in file_entry.get("lines", []):
+                number = line["line_number"]
+                lines[number] = lines.get(number, False) or line.get("count", 0) > 0
+
+    modules: list[dict[str, object]] = []
+    for path, lines in sorted(lines_by_source.items()):
+        uncovered = sorted(number for number, covered in lines.items() if not covered)
+        modules.append(
+            build_module(path, "firmware", "C", len(lines), len(lines) - len(uncovered), uncovered)
+        )
     return modules
 
 
@@ -180,7 +186,7 @@ def main() -> None:
     total_lines = sum(int(m["lines_total"]) for m in modules)
     covered_lines = sum(int(m["lines_covered"]) for m in modules)
     overall = round((covered_lines / total_lines) * 100, 1) if total_lines else 0.0
-    generated_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    generated_at = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
 
     report = {
         "generated_at": generated_at,

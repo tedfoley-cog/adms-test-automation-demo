@@ -11,7 +11,7 @@ test.describe('Legacy modernization view', () => {
     page,
   }) => {
     await expect(page.getByTestId('legacy-status-RTGENACE')).toHaveText('ported, unverified');
-    await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('0.0%');
+    await expect(page.getByTestId('legacy-cov-RTGENACE')).toHaveText('100.0%');
     await expect(page.getByTestId('legacy-RTGENACE')).toContainText('app/agc.py');
     await expect(page.getByTestId('legacy-RTGENACE')).toContainText('NERC BAL-001');
 

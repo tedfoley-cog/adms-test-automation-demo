@@ -30,30 +30,30 @@ test.describe('Verification backlog form', () => {
     await page.getByTestId('form-submit').click();
 
     await expect(page.getByTestId('form-errors')).toContainText(
-      'Target must exceed the current 68.7% coverage of network.py',
+      'Target must exceed the current 97.0% coverage of network.py',
     );
     await expect(page.getByTestId('kpi-backlog')).toHaveText('0');
   });
 
   test('a valid request is queued, confirmed and removable', async ({ page }) => {
-    await page.getByTestId('form-module').selectOption('firmware/src/dnp3_outstation.c');
-    await page.getByTestId('form-target').fill('85');
-    await page.getByTestId('form-technique').selectOption('Protocol conformance replay');
+    await page.getByTestId('form-module').selectOption('app/network.py');
+    await page.getByTestId('form-target').fill('99');
+    await page.getByTestId('form-technique').selectOption('Property-based');
     await page
       .getByTestId('form-justification')
-      .fill('Class 0 responses are unverified against IEEE 1815 object groups 1 and 30.');
+      .fill('Exercise the remaining topology traversal paths across generated feeder models.');
     await page.getByTestId('form-submit').click();
 
     await expect(page.getByTestId('form-confirmation')).toHaveText(
-      'dnp3_outstation.c queued at 85% target.',
+      'network.py queued at 99% target.',
     );
     await expect(page.getByTestId('kpi-backlog')).toHaveText('1');
-    const entry = page.getByTestId('backlog-dnp3_outstation.c');
-    await expect(entry).toContainText('Protocol conformance replay');
-    await expect(entry).toContainText('85% target');
+    const entry = page.getByTestId('backlog-network.py');
+    await expect(entry).toContainText('Property-based');
+    await expect(entry).toContainText('99% target');
     await expect(entry).toContainText('Tier 2');
 
-    await page.getByTestId('remove-dnp3_outstation.c').click();
+    await page.getByTestId('remove-network.py').click();
     await expect(page.getByTestId('backlog-empty')).toBeVisible();
     await expect(page.getByTestId('kpi-backlog')).toHaveText('0');
   });

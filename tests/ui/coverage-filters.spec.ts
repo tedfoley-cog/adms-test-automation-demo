@@ -11,13 +11,15 @@ test.describe('Coverage view: search, filter and sort over the real report', () 
   }) => {
     await page.getByTestId('filter-layer').selectOption('firmware');
     await page.getByTestId('filter-tier').selectOption('Tier 1');
-    await page.getByTestId('filter-below').check();
-
     await expect(page.getByTestId('result-count')).toHaveText('2 of 11 modules');
     const names = await page.locator('tbody tr.row td:first-child .mono').allTextContents();
     expect(names.sort()).toEqual(['fault_detect.c', 'recloser.c']);
-    await expect(page.getByTestId('coverage-recloser.c')).toContainText('0.0%');
-    await expect(page.getByTestId('coverage-fault_detect.c')).toContainText('41.9%');
+    await expect(page.getByTestId('coverage-recloser.c')).toHaveText('100.0%');
+    await expect(page.getByTestId('coverage-fault_detect.c')).toHaveText('100.0%');
+
+    await page.getByTestId('filter-below').check();
+    await expect(page.getByTestId('result-count')).toHaveText('0 of 11 modules');
+    await expect(page.getByTestId('no-results')).toBeVisible();
   });
 
   test('searching by governing standard finds the protection module, not the DNP3 one', async ({
@@ -37,20 +39,19 @@ test.describe('Coverage view: search, filter and sort over the real report', () 
     );
   });
 
-  test('sorting by gap descending puts the two zero-coverage Tier 1 modules on top', async ({
+  test('sorting by coverage reverses the order of the two lowest-coverage modules', async ({
     page,
   }) => {
-    await page.getByTestId('filter-below').check();
-    await page.getByTestId('sort-gap').click();
-    await page.getByTestId('sort-gap').click();
+    const names = page.locator('tbody tr.row td:first-child .mono');
+    await expect(names.nth(0)).toHaveText('api.py');
+    await expect(names.nth(1)).toHaveText('network.py');
 
-    const first = page.locator('tbody tr.row').first();
-    await expect(first).toContainText('90.0');
-    const topTwo = await page
-      .locator('tbody tr.row td:first-child .mono')
-      .allTextContents()
-      .then((rows) => rows.slice(0, 2).sort());
-    expect(topTwo).toEqual(['agc.py', 'recloser.c']);
+    await page.getByTestId('sort-coverage').click();
+    await expect(names.nth(9)).toHaveText('network.py');
+    await expect(names.nth(10)).toHaveText('api.py');
+    await page.getByTestId('sort-coverage').click();
+    await expect(names.nth(0)).toHaveText('api.py');
+    await expect(names.nth(1)).toHaveText('network.py');
   });
 
   test('a search with no domain match shows the empty state and clears back to all modules', async ({
