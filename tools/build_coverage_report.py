@@ -118,6 +118,9 @@ def merge_firmware_coverage(build: Path) -> list[dict[str, object]]:
                 number = line["line_number"]
                 lines[number] = lines.get(number, False) or line.get("count", 0) > 0
 
+    if not any(lines_by_source.values()):
+        raise SystemExit("No firmware coverage data found; check gcov and the firmware build.")
+
     modules: list[dict[str, object]] = []
     for path, lines in sorted(lines_by_source.items()):
         uncovered = sorted(number for number, covered in lines.items() if not covered)
