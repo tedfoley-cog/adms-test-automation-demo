@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import glob
 import gzip
 import json
 import subprocess
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 REPO = Path(__file__).resolve().parent.parent
 FIRMWARE = REPO / "firmware"
@@ -95,9 +95,14 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def firmware_modules() -> list[dict[str, object]]:
-    run(["make", "coverage"], FIRMWARE)
+    with TemporaryDirectory(prefix="firmware-coverage-") as build:
+        run(["make", "coverage", f"BUILD={build}"], FIRMWARE)
+        return merge_firmware_coverage(Path(build))
+
+
+def merge_firmware_coverage(build: Path) -> list[dict[str, object]]:
     lines_by_source: dict[str, dict[int, bool]] = {}
-    for archive in sorted(glob.glob(str(FIRMWARE / "build" / "*.gcov.json.gz"))):
+    for archive in sorted(build.glob("*.gcov.json.gz")):
         with gzip.open(archive, "rt", encoding="utf-8") as handle:
             payload = json.load(handle)
         for file_entry in payload.get("files", []):
